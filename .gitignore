@@ -4,6 +4,7 @@
 01_DATA/raw_wsi/*
 01_DATA/raw_tiles/*
 01_DATA/processed_tiles/*
+01_DATA/raw_academic/*
 !01_DATA/.gitkeep
 
 # Neural Logic Weights (Commit only base architectures if needed)
@@ -23,6 +24,8 @@ __pycache__/
 venv/
 .env
 .ipynb_checkpoints/
+Tuberculosis-1/
+scratch/
 
 # System-Specific (OSX/Windows metadata)
 .DS_Store

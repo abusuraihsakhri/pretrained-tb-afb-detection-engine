@@ -66,6 +66,50 @@ class InferenceResult(BaseModel):
 ACTIVE_MODEL = None
 ACTIVE_MODEL_PATH = None
 
+def run_tiled_inference(model, image, tile_size=640, overlap=64, conf_thresh=0.25):
+    """
+    Sliding-window tiled inference for full-slide microscope images.
+    Splits image into tile_size patches, runs YOLO on each, 
+    and maps all detections back to global image coordinates.
+    """
+    h, w = image.shape[:2]
+    detections = []
+    stride = tile_size - overlap
+
+    for y0 in range(0, h, stride):
+        for x0 in range(0, w, stride):
+            x1 = min(x0 + tile_size, w)
+            y1 = min(y0 + tile_size, h)
+            tile = image[y0:y1, x0:x1]
+
+            # Pad tile to tile_size x tile_size if near edge
+            pad_h = tile_size - tile.shape[0]
+            pad_w = tile_size - tile.shape[1]
+            if pad_h > 0 or pad_w > 0:
+                tile = cv2.copyMakeBorder(tile, 0, pad_h, 0, pad_w, cv2.BORDER_CONSTANT, value=0)
+
+            results = model(tile, verbose=False)[0]
+            if results.boxes is None:
+                continue
+
+            for box in results.boxes:
+                conf = float(box.conf[0])
+                if conf < conf_thresh:
+                    continue
+                cls = int(box.cls[0])
+                # box.xywh is in tile coordinates — remap to global
+                bx, by, bw, bh = box.xywh[0].tolist()
+                global_cx = bx + x0
+                global_cy = by + y0
+                detections.append({
+                    "bbox": [round(global_cx,1), round(global_cy,1), round(bw,1), round(bh,1)],
+                    "confidence": round(conf, 2),
+                    "class_id": cls,
+                    "label": "AFB_Definite" if cls == 0 else "AFB_Possible"
+                })
+
+    return detections
+
 def load_active_model(device='cpu'):
     """Dynamically monitors the file system for newly trained YOLOv8 weights and loads them into memory natively on the specified hardware."""
     global ACTIVE_MODEL, ACTIVE_MODEL_PATH
@@ -140,24 +184,10 @@ async def analyze_slide(request: Request, file: UploadFile = File(...)):
     
     if image is not None:
         if yolo_model:
-            # 🚀 FULL AI LOOP: Pass the array directly to Ultralytics
-            # We bypass disk writes entirely and run natively in PyTorch RAM
-            results = yolo_model(image)[0]
-            
-            for box in results.boxes:
-                # Extract YOLO format and convert nicely
-                coords = box.xywh[0].tolist() # x_center, y_center, width, height
-                conf = float(box.conf[0])
-                cls = int(box.cls[0])
-                
-                # Active filter (Require high diagnostic confidence > 50%)
-                if conf >= 0.50:
-                    mock_boxes.append({
-                        "bbox": coords,
-                        "confidence": round(conf, 2),
-                        "class_id": cls,
-                        "label": "AFB_Definite" if cls == 0 else "AFB_Possible"
-                    })
+            # 🚀 TILED INFERENCE ENGINE
+            # Model trained on 640px patches — full slides must be tiled first.
+            # Tiles with 64px overlap prevent detections being missed at boundaries.
+            mock_boxes = run_tiled_inference(yolo_model, image, tile_size=640, overlap=64, conf_thresh=0.05)
         else:
             # 🛡️ THE FALLBACK: Strict color thresholds if YOLO is not yet trained!
             h, w = image.shape[:2]
@@ -195,7 +225,7 @@ async def analyze_slide(request: Request, file: UploadFile = File(...)):
         
     return InferenceResult(
         detections=mock_boxes,
-        message=f"{'YOLOv8 Active Execution' if yolo_model else 'ZN OpenCV Pipeline Executed'}.",
+        message=f"{'YOLOv8 Tiled Inference Active' if yolo_model else 'ZN OpenCV Pipeline Executed'}.",
         grade=grade,
         hardware=hardware_status
     )
@@ -248,7 +278,7 @@ async def trigger_training():
     
     train_script = current_dir.parent.parent / "02_CODE" / "scripts" / "02_train.py"
     data_yaml = current_dir.parent.parent / "02_CODE" / "data.yaml"
-    subprocess.Popen(["python", str(train_script), "--data", str(data_yaml)])
+    subprocess.Popen([sys.executable, str(train_script), "--data", str(data_yaml)])
     
     return {"status": "success", "message": "CUDA Neural Training has been allocated."}
 

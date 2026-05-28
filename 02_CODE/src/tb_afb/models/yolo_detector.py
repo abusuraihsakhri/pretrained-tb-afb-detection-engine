@@ -52,11 +52,15 @@ class YOLOAFBDetector:
             
         if self.model:
             # 🛡️ Augmentation Strategy: 10% Rotation, HSV Jitter for staining drift, Vertical/Horizontal Flips
+            # 🚀 VRAM OPTIMIZATION: Fixed Batch-8 for 6GB NVIDIA cards + AMP + Windows Stability
             self.model.train(
                 data=str(data_yaml), 
                 epochs=int(epochs), 
-                batch=int(batch_size), 
+                batch=8, # Hardcoded safe limit for 6GB VRAM (auto-batching crashes Windows)
+                workers=0, # CRITICAL FIX: Stops Windows "Python stopped working" multiprocessing crashes
                 device=device,
+                imgsz=640, # Standard clinical tile resolution
+                amp=True,  # Mixed precision to save 50% VRAM
                 exist_ok=True,
                 degrees=15.0,
                 hsv_h=0.015,
@@ -64,7 +68,8 @@ class YOLOAFBDetector:
                 hsv_v=0.4,
                 flipud=0.5,
                 fliplr=0.5,
-                mosaic=1.0 # Essential for finding small AFB objects in dense tiles
+                mosaic=1.0, 
+                patience=50  # Early stopping to save compute
             )
             
         return Path("runs/detect/train/weights/best.pt")

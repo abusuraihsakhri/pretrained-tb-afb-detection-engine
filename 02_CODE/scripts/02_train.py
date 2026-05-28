@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from tb_afb.models.yolo_detector import YOLOAFBDetector
 from tb_afb.utils.logger import AuditLogger
+from tb_afb.utils.safety import check_disk_space
 
 def secure_yaml_resolution(base_dir: Path, yaml_path: str) -> Path:
     """Blocks directory traversal patterns for YAML payloads."""
@@ -31,6 +32,10 @@ def main():
     parser.add_argument("--batch", type=int, default=4)
     args = parser.parse_args()
     
+    # 🛡️ SAFETY CHECK: Ensure we don't crash the OS during massive ingestion
+    if not check_disk_space(min_gb=10.0):
+        sys.exit(1)
+
     safe_root = Path("02_CODE").resolve()
     
     try:
@@ -41,6 +46,13 @@ def main():
         audit = AuditLogger(log_dir=Path("06_LOGS/training"), user_id="CLI_AUTO")
         audit.log_training_start(config_hash="TESTING_HASH", data_version="V1", git_commit="N/A")
         
+        # 🛡️ CLEANUP: Remove old YOLO caches to ensure new public data is indexed
+        for cache_file in Path("01_DATA/processed_tiles").rglob("*.cache"):
+            try:
+                cache_file.unlink()
+                print(f"[*] Cleared cache: {cache_file.name}")
+            except: pass
+
         # Build Model 
         detector = YOLOAFBDetector(model_size="n", num_classes=5)
         detector.build_model()
