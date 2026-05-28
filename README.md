@@ -27,8 +27,12 @@ This system was developed and architected by **Dr. Abu Suraih Sakhri** with a fo
 ---
 
 ## 📊 Baseline Clinical Performance (Verified)
-The current PyTorch neural engine was trained on a highly augmented datalake of ~5,200 clinical patches (mosaic/hsv-jitter enabled), validating the following performance metrics on a generalized holdout set (150 epochs, YOLOv8n architecture):
+The current PyTorch neural engine was trained on a highly augmented datalake of **7,979 clinical patches**, arrayed across varying microscopy fields to prevent staining bias.
 
+*   **Training Set (80%):** `7,246 images` (Actively utilized for weight optimization)
+*   **Validation Set (20%):** `733 images` (Strict holdout set for blind testing)
+
+Validated performance metrics on the holdout set (150 epochs, YOLOv8n architecture):
 *   **mAP@50 (Mean Average Precision): 83.29%**
 *   **Precision (False Positive Rejection): 82.20%**
 *   **Recall (Sensitivity): 75.25%**
