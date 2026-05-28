@@ -115,12 +115,7 @@ The engine outputs a standardized clinical quantitation:
 
 ---
 
-## 🛡️ Cyber Security & Data Privacy
-Designed with a **Security-First** mindset:
-1.  **Airtight Datalake Isolation**: All file operations are strictly jailed to the `01_DATA` directory via `secure_file_resolution`.
-2.  **Verified Checkpoint Guard**: Implements `weights_only=True` loading blocks to prevent arbitrary code execution (RCE).
-3.  **Resource Guard**: Implements `try...finally` resource management to prevent File Descriptor exhaustion and DoS attacks.
-4.  **Privacy-First Datalake**: Built-in protection ensures no patient data is exposed to version control.
+<!-- initial commit -->
 
 ## ⚖️ License
 Distributed under the **Apache License 2.0**. See `LICENSE` for more information.
