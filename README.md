@@ -1,5 +1,7 @@
 # TB-AFB Detection Research Pipeline
 
+### [Open the Project Site →](https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-engine/)
+
 A research codebase for detecting acid-fast bacilli (AFB) in Ziehl-Neelsen microscopy images using YOLO-based object detection, tiled inference, and expert annotation workflows.
 
 > **Research use only.** This repository is not a validated diagnostic medical device. A trained AFB checkpoint is intentionally not bundled at present; model weights and reproducible evaluation artifacts will be added separately.
