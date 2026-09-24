@@ -137,97 +137,72 @@ def load_active_model(device='cpu'):
 
 @app.post("/api/v1/analyze", response_model=InferenceResult)
 async def analyze_slide(request: Request, file: UploadFile = File(...)):
-    if int(request.headers.get('content-length', 0)) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. (250MB Hard Limit)")
-        
-    filename = file.filename.lower()
-    allowed_exts = [
-        ".jpg", ".jpeg", ".png", 
-        ".tiff", ".tif", ".ptif", ".ptiff", ".ome.tif", ".ome.tiff",
-        ".jp2", ".j2k", ".jpf", ".jpx",
-        ".svs", ".ndpi", ".vms", ".vmu", ".scn", ".bif", ".mrxs",
-        ".dicom", ".dcm"
-    ]
-    if not any(filename.endswith(ext) for ext in allowed_exts):
-        raise HTTPException(status_code=415, detail="Unsupported format.")
+    """Research inference endpoint for ordinary raster microscopy images.
 
-    # 🛡️ ALGO UPGRADE: Attempt to load the Deep Learning Model if you trained it!
-    # Universal Device Priority Chain
+    Proprietary WSI formats are intentionally rejected here. They require
+    OpenSlide-backed file handling rather than cv2.imdecode. This prevents an
+    unreadable WSI from being misreported as a negative specimen.
+    """
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (250 MB limit).")
+
+    filename = (file.filename or "").lower()
+    allowed_exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+    if not any(filename.endswith(ext) for ext in allowed_exts):
+        raise HTTPException(
+            status_code=415,
+            detail="This endpoint accepts raster microscopy images only. Use the OpenSlide/CLI workflow for WSI files.",
+        )
+
     if torch.cuda.is_available():
-        device = torch.device('cuda')
-    elif torch.backends.mps.is_available():
-        device = torch.device('mps')
+        device = torch.device("cuda")
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = torch.device("mps")
     else:
-        device = torch.device('cpu')
-        
+        device = torch.device("cpu")
+
     yolo_model = load_active_model(device=device)
-    
-    # Reflect exact architecture backend in the UI
-    if device.type == 'cuda':
-        base_hw = 'NVIDIA Tensor Cores'
-    elif device.type == 'mps':
-        base_hw = 'Apple Silicon (Metal/MPS)'
-    else:
-        base_hw = 'CPU Mode'
-        
-    hardware_status = f"Hardware Backend: {base_hw} | "
-    if yolo_model:
-        hardware_status += "[Active Learning Model HOT-MOUNTED!]"
-    else:
-        hardware_status += "[Clinical Fallback: OpenCV Morphology Segmenter]"
+    if yolo_model is None:
+        raise HTTPException(
+            status_code=503,
+            detail="No trained AFB checkpoint is installed. Add a validated best.pt before inference.",
+        )
 
     contents = await file.read()
-    image_array = np.frombuffer(contents, np.uint8)
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-    
-    mock_boxes = []
-    
-    if image is not None:
-        if yolo_model:
-            # 🚀 TILED INFERENCE ENGINE
-            # Model trained on 640px patches — full slides must be tiled first.
-            # Tiles with 64px overlap prevent detections being missed at boundaries.
-            mock_boxes = run_tiled_inference(yolo_model, image, tile_size=640, overlap=64, conf_thresh=0.05)
-        else:
-            # 🛡️ THE FALLBACK: Strict color thresholds if YOLO is not yet trained!
-            h, w = image.shape[:2]
-            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-            
-            lower_magenta = np.array([130, 40, 20])
-            upper_magenta = np.array([175, 255, 255])
-            
-            mask = cv2.inRange(hsv, lower_magenta, upper_magenta)
-            kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if 15 < area < 300:
-                    x, y, cw, ch = cv2.boundingRect(cnt)
-                    aspect_ratio = max(cw, ch) / max(min(cw, ch), 1)
-                    if aspect_ratio >= 1.5:
-                        conf = min(0.99, 0.70 + (aspect_ratio / 10.0))
-                        mock_boxes.append({
-                            "bbox": [x + cw/2.0, y + ch/2.0, cw + 4, ch + 4],
-                            "confidence": round(conf, 2),
-                            "class_id": 0 if conf > 0.85 else 2,
-                            "label": "AFB_Definite" if conf > 0.85 else "AFB_Possible"
-                        })
-    
-    det_count = len(mock_boxes)
-    if det_count == 0: grade = "Negative"
-    elif det_count < 10: grade = f"Scanty ({det_count} AFB detected)"
-    elif det_count < 100: grade = f"1+ Positive ({det_count} AFB detected)"
-    elif det_count < 1000: grade = f"2+ Positive ({det_count} AFB detected)"
-    else: grade = f"3+ Positive ({det_count} AFB detected)"
-        
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (250 MB limit).")
+    image = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(status_code=415, detail="Image could not be decoded.")
+
+    detections = run_tiled_inference(
+        yolo_model, image, tile_size=640, overlap=64, conf_thresh=0.25
+    )
+
+    # Global NMS removes duplicate detections produced in overlapping tiles.
+    if detections:
+        boxes = []
+        scores = []
+        for det in detections:
+            cx, cy, w, h = det["bbox"]
+            boxes.append([int(cx - w / 2), int(cy - h / 2), int(w), int(h)])
+            scores.append(float(det["confidence"]))
+        keep = cv2.dnn.NMSBoxes(boxes, scores, 0.25, 0.45)
+        keep_indices = set(np.asarray(keep).reshape(-1).tolist()) if len(keep) else set()
+        detections = [d for i, d in enumerate(detections) if i in keep_indices]
+
+    hardware = {
+        "cuda": "NVIDIA CUDA",
+        "mps": "Apple Metal/MPS",
+        "cpu": "CPU",
+    }.get(device.type, device.type)
+
     return InferenceResult(
-        detections=mock_boxes,
-        message=f"{'YOLOv8 Tiled Inference Active' if yolo_model else 'ZN OpenCV Pipeline Executed'}.",
-        grade=grade,
-        hardware=hardware_status
+        detections=detections,
+        message="Research inference completed. No smear grade was inferred without an explicit field-sampling protocol.",
+        grade="Not calculated",
+        hardware=hardware,
     )
 
 @app.post("/api/v1/save_annotation")
