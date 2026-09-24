@@ -1,142 +1,92 @@
 #!/usr/bin/env python3
+"""Import explicitly mapped public Roboflow AFB datasets.
+
+A dataset is never ingested unless its AFB class IDs are declared. Source train,
+validation and test partitions remain separate.
 """
-Public Dataset Ingestion Pipeline
-Downloads AFB datasets from Roboflow and remaps labels to the 5-class clinical schema.
-"""
+import argparse
 import os
 import shutil
-import argparse
 from pathlib import Path
-from roboflow import Roboflow
 
-import os
-import shutil
-import argparse
-import yaml
-from pathlib import Path
 from roboflow import Roboflow
-
-# 🛡️ GLOBAL TB INTELLIGENCE MAPPING
-# All known public AFB labels are mapped to our Class 0 (AFB_Definite)
-# Our Schema: 0: AFB_Definite, 1: AFB_Probable, 2: AFB_Possible, 3: Debris, 4: RBC
-TARGET_CLASS = 0
 
 DATASETS = [
-    {"workspace": "harshita-hhmns", "project": "afb-u0hdn", "version": 1},
-    {"workspace": "swu-5alfk", "project": "tuberculosis-p8whq", "version": 1},
-    {"workspace": "swu-5alfk", "project": "tuberculosis-czyfb", "version": 3},
-    {"workspace": "huzaifa-athar", "project": "afb-zpazz", "version": 1},
-    {"workspace": "naresuan-university-1yqlq", "project": "technique-for-detecting-acid-fast-bacilli", "version": 15}
+    # Fill afb_class_ids only after verifying the source dataset's class names/version.
+    {"workspace": "harshita-hhmns", "project": "afb-u0hdn", "version": 1, "afb_class_ids": None},
+    {"workspace": "swu-5alfk", "project": "tuberculosis-p8whq", "version": 1, "afb_class_ids": None},
+    {"workspace": "swu-5alfk", "project": "tuberculosis-czyfb", "version": 3, "afb_class_ids": None},
+    {"workspace": "huzaifa-athar", "project": "afb-zpazz", "version": 1, "afb_class_ids": None},
+    {"workspace": "naresuan-university-1yqlq", "project": "technique-for-detecting-acid-fast-bacilli", "version": 15, "afb_class_ids": None},
 ]
 
-def map_labels(lbl_p, dst_p, mapping_dict):
-    """Remaps labels from local project index to global TB-AFB index."""
-    if not lbl_p.exists(): return
-    
-    with open(lbl_p, "r") as f:
-        lines = f.readlines()
-    
-    with open(dst_p, "w") as f:
-        for line in lines:
-            parts = line.strip().split()
-            if not parts: continue
-            
-            orig_cls = int(parts[0])
-            # Default to TARGET_CLASS (0) as these are all curated AFB datasets
-            new_cls = TARGET_CLASS 
-            
-            f.write(f"{new_cls} {' '.join(parts[1:])}\n")
 
-def ingest_roboflow_dataset(api_key, workspace, project, version, target_root):
-    rf = Roboflow(api_key=api_key)
-    project_obj = rf.workspace(workspace).project(project)
-    
-    # Download in YOLOv8 format
-    print(f"\n[*] Downloading {project} (v{version})...")
-    dataset = project_obj.version(version).download("yolov8")
-    
-    source_path = Path(dataset.location)
-    target_root = Path(target_root)
-    
+def remap_label(src: Path, dst: Path, afb_class_ids: set[int]) -> None:
+    lines = []
+    if src.exists():
+        for raw in src.read_text(encoding="utf-8").splitlines():
+            parts = raw.split()
+            if len(parts) != 5:
+                raise ValueError(f"Malformed YOLO label in {src}: {raw!r}")
+            source_class = int(parts[0])
+            if source_class in afb_class_ids:
+                lines.append("0 " + " ".join(parts[1:]))
+    dst.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def ingest(api_key: str, spec: dict, target_root: Path) -> int:
+    if spec["afb_class_ids"] is None:
+        raise ValueError(
+            f"{spec['project']}: afb_class_ids has not been verified. "
+            "Inspect the pinned source dataset version before ingestion."
+        )
+    dataset = (
+        Roboflow(api_key=api_key)
+        .workspace(spec["workspace"])
+        .project(spec["project"])
+        .version(spec["version"])
+        .download("yolov8")
+    )
+    source = Path(dataset.location)
     count = 0
-    for split in ['train', 'valid', 'test']:
-        # Clinical hygiene split: map 'valid'/'test' to 'val' to keep it simple for YOLO
-        target_split = 'val' if split in ['valid', 'test'] else split
-        
-        src_img_dir = source_path / split / "images"
-        src_lbl_dir = source_path / split / "labels"
-        
-        dst_img_dir = target_root / target_split / "images"
-        dst_lbl_dir = target_root / target_split / "labels"
-        
-        dst_img_dir.mkdir(parents=True, exist_ok=True)
-        dst_lbl_dir.mkdir(parents=True, exist_ok=True)
-        
-        if not src_img_dir.exists(): continue
-            
-        img_files = list(src_img_dir.glob("*.jpg")) + list(src_img_dir.glob("*.png")) + list(src_img_dir.glob("*.jpeg"))
-        
-        for img_p in img_files:
-            lbl_p = src_lbl_dir / f"{img_p.stem}.txt"
-            
-            # Anti-collision naming
-            safe_name = f"pub_{project}_{img_p.name}"
-            safe_lbl_name = f"pub_{project}_{img_p.stem}.txt"
-            
-            # Copy Image
-            shutil.copy(img_p, dst_img_dir / safe_name)
-            
-            # Process and Copy Label
-            map_labels(lbl_p, dst_lbl_dir / safe_lbl_name, {})
-            count += 1
+    try:
+        for source_split, target_split in (("train", "train"), ("valid", "val"), ("test", "test")):
+            images = source / source_split / "images"
+            labels = source / source_split / "labels"
+            if not images.exists():
+                continue
+            dst_images = target_root / target_split / "images"
+            dst_labels = target_root / target_split / "labels"
+            dst_images.mkdir(parents=True, exist_ok=True)
+            dst_labels.mkdir(parents=True, exist_ok=True)
+            for image in images.iterdir():
+                if image.suffix.lower() not in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}:
+                    continue
+                stem = f"pub_{spec['project']}_{image.stem}"
+                shutil.copy2(image, dst_images / f"{stem}{image.suffix.lower()}")
+                remap_label(labels / f"{image.stem}.txt", dst_labels / f"{stem}.txt",
+                            set(spec["afb_class_ids"]))
+                count += 1
+    finally:
+        shutil.rmtree(source, ignore_errors=True)
+    return count
 
-    print(f"[SUCCESS] Ingested {count} arrays from {project}")
-    # Cleanup downloaded raw folder to save space
-    shutil.rmtree(source_path)
-
-def get_api_key(cmd_arg):
-    if cmd_arg:
-        return cmd_arg
-        
-    env_p = Path(".env")
-    if env_p.exists():
-        with open(env_p, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("ROBOFLOW_API_KEY="):
-                    return line.split("=")[1].strip()
-    return None
 
 def main():
-    parser = argparse.ArgumentParser(description="🚀 ULTIMATE TB-AFB DATA INGESTER")
-    parser.add_argument("--key", help="Roboflow API Key (Optional if .env exists)")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--key", default=os.getenv("ROBOFLOW_API_KEY"))
+    parser.add_argument("--project", help="Ingest one configured project only")
     args = parser.parse_args()
-    
-    api_key = get_api_key(args.key)
-    if not api_key:
-        print("[🚨 ERROR] Roboflow API Key not found. Please paste it into the .env file.")
-        return
+    if not args.key:
+        raise SystemExit("ROBOFLOW_API_KEY is required.")
 
-    target_data_dir = Path("01_DATA/processed_tiles")
-    
-    print("="*60)
-    print("      TB-AFB PUBLIC DATASET AGGREGATION PIPELINE")
-    print("="*60)
-    
-    for ds in DATASETS:
-        try:
-            ingest_roboflow_dataset(
-                api_key=api_key,
-                workspace=ds['workspace'],
-                project=ds['project'],
-                version=ds['version'],
-                target_root=target_data_dir
-            )
-        except Exception as e:
-            print(f"[ERROR] Skipping {ds['project']}: {e}")
+    selected = [d for d in DATASETS if not args.project or d["project"] == args.project]
+    if not selected:
+        raise SystemExit("Unknown configured project.")
+    target = Path("01_DATA/processed_tiles")
+    for spec in selected:
+        print(f"{spec['project']}: {ingest(args.key, spec, target)} images imported")
 
-    print("\n" + "="*60)
-    print("   INGESTION COMPLETE. RUN Start_YOLO_Training.bat TO BEGIN.")
-    print("="*60)
 
 if __name__ == "__main__":
     main()

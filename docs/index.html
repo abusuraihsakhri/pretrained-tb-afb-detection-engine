@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Research pipeline for acid-fast bacilli detection in Ziehl-Neelsen microscopy images.">
+  <title>TB-AFB Detection Research</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="./">TB-AFB <span>Research</span></a>
+  <nav aria-label="Primary">
+    <a href="#pipeline">Pipeline</a><a href="#validation">Validation</a><a href="#status">Status</a>
+    <a class="repo" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">Repository</a>
+    <button id="theme" type="button" aria-label="Toggle color theme">◐</button>
+  </nav>
+</header>
+<main>
+<section class="hero">
+  <div>
+    <p class="eyebrow">DIGITAL MICROSCOPY · COMPUTER VISION</p>
+    <h1>AFB detection research,<br><em>built for reproducibility.</em></h1>
+    <p class="lede">An open research pipeline for detecting acid-fast bacilli in Ziehl-Neelsen microscopy images, with explicit dataset provenance, tiled inference, expert annotation, and reproducible evaluation.</p>
+    <div class="actions"><a class="primary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">View source</a><a href="#pipeline">Explore methodology ↓</a></div>
+  </div>
+  <aside class="status-card" aria-label="Project status">
+    <div class="status-head"><span class="dot"></span> Research pipeline</div>
+    <dl><div><dt>Task</dt><dd>AFB object detection</dd></div><div><dt>Input</dt><dd>ZN microscopy / WSI</dd></div><div><dt>Model</dt><dd>YOLO-based detector</dd></div><div><dt>Weights</dt><dd>Pending release</dd></div></dl>
+    <p>Not a validated diagnostic medical device.</p>
+  </aside>
+</section>
+<section id="pipeline" class="section">
+  <p class="eyebrow">METHOD</p><h2>From microscopy to auditable detections</h2>
+  <div class="grid">
+    <article><b>01</b><h3>Curate</h3><p>Preserve source provenance and train/validation/test boundaries. Public source classes require explicit verification before remapping.</p></article>
+    <article><b>02</b><h3>Train</h3><p>Single-class AFB detection with deterministic training settings and versioned configuration.</p></article>
+    <article><b>03</b><h3>Infer</h3><p>Overlapping tiled inference supports large imagery; global NMS removes duplicate boundary detections.</p></article>
+    <article><b>04</b><h3>Review</h3><p>Expert annotation can feed subsequent research iterations without silently changing the evaluation cohort.</p></article>
+  </div>
+</section>
+<section id="validation" class="section split">
+  <div><p class="eyebrow">VALIDATION PRINCIPLES</p><h2>Metrics require their evidence.</h2><p>Performance values are intentionally withheld until the trained checkpoint, frozen split manifest, software environment and evaluation outputs can be released together.</p></div>
+  <ul class="check"><li>Slide/patient-level partitioning where identifiers permit</li><li>Independent test set kept separate from validation</li><li>Negative microscopy fields retained</li><li>Precision, recall, F1, AP50 and AP50–95</li><li>False positives per image or examined field</li><li>Threshold, model hash and error analysis reported</li></ul>
+</section>
+<section id="status" class="section">
+  <p class="eyebrow">CURRENT STATUS</p><h2>Code repaired; weights pending.</h2>
+  <div class="timeline"><div><span>Done</span><p>Single-class schema and safer public-data ingestion</p></div><div><span>Done</span><p>Fail-safe raster inference and overlap deduplication</p></div><div><span>Done</span><p>Field-aware research grading and regression tests</p></div><div class="pending"><span>Next</span><p>Add trained weights and frozen evaluation bundle</p></div></div>
+</section>
+</main>
+<footer><span>TB-AFB Detection Research Pipeline</span><span>Apache-2.0 · Research use</span></footer>
+<script src="script.js"></script>
+</body></html>
