@@ -3,51 +3,138 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Research pipeline for acid-fast bacilli detection in Ziehl-Neelsen microscopy images.">
-  <title>TB-AFB Detection Research</title>
+  <meta name="description" content="TB-AFB detection system for Ziehl-Neelsen microscopy images and whole-slide imaging workflows.">
+  <title>TB-AFB Detection System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="nav">
-  <a class="brand" href="./">TB-AFB <span>Research</span></a>
+  <a class="brand" href="./">TB-AFB <span>Detection</span></a>
   <nav aria-label="Primary">
-    <a href="#pipeline">Pipeline</a><a href="#validation">Validation</a><a href="#status">Status</a>
+    <a href="#features">Features</a>
+    <a href="#workflow">Workflow</a>
+    <a href="#architecture">Architecture</a>
     <a class="repo" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">Repository</a>
     <button id="theme" type="button" aria-label="Toggle color theme">◐</button>
   </nav>
 </header>
+
 <main>
 <section class="hero">
   <div>
     <p class="eyebrow">DIGITAL MICROSCOPY · COMPUTER VISION</p>
-    <h1>AFB detection research,<br><em>built for reproducibility.</em></h1>
-    <p class="lede">An open research pipeline for detecting acid-fast bacilli in Ziehl-Neelsen microscopy images, with explicit dataset provenance, tiled inference, expert annotation, and reproducible evaluation.</p>
-    <div class="actions"><a class="primary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">View source</a><a href="#pipeline">Explore methodology ↓</a></div>
+    <h1>Acid-fast bacilli detection for <em>digital microscopy.</em></h1>
+    <p class="lede">A Python-based computer-vision system for detecting acid-fast bacilli in Ziehl-Neelsen microscopy images, including tiled analysis of large images and whole-slide imaging workflows.</p>
+    <div class="actions">
+      <a class="primary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">View repository</a>
+      <a href="#features">Explore features ↓</a>
+    </div>
   </div>
-  <aside class="status-card" aria-label="Project status">
-    <div class="status-head"><span class="dot"></span> Research pipeline</div>
-    <dl><div><dt>Task</dt><dd>AFB object detection</dd></div><div><dt>Input</dt><dd>ZN microscopy / WSI</dd></div><div><dt>Model</dt><dd>YOLO-based detector</dd></div><div><dt>Weights</dt><dd>Pending release</dd></div></dl>
-    <p>Not a validated diagnostic medical device.</p>
+
+  <aside class="status-card" aria-label="System capabilities">
+    <div class="status-head"><span class="dot"></span> System capabilities</div>
+    <dl>
+      <div><dt>Detection</dt><dd>Single-class AFB</dd></div>
+      <div><dt>Microscopy</dt><dd>Ziehl-Neelsen</dd></div>
+      <div><dt>Large images</dt><dd>Tiled inference</dd></div>
+      <div><dt>Interfaces</dt><dd>CLI + API + Web UI</dd></div>
+    </dl>
+    <p>Open research software for microscopy analysis and method development.</p>
   </aside>
 </section>
-<section id="pipeline" class="section">
-  <p class="eyebrow">METHOD</p><h2>From microscopy to auditable detections</h2>
+
+<section id="features" class="section">
+  <p class="eyebrow">FEATURES</p>
+  <h2>Built around the complete AFB analysis workflow.</h2>
   <div class="grid">
-    <article><b>01</b><h3>Curate</h3><p>Preserve source provenance and train/validation/test boundaries. Public source classes require explicit verification before remapping.</p></article>
-    <article><b>02</b><h3>Train</h3><p>Single-class AFB detection with deterministic training settings and versioned configuration.</p></article>
-    <article><b>03</b><h3>Infer</h3><p>Overlapping tiled inference supports large imagery; global NMS removes duplicate boundary detections.</p></article>
-    <article><b>04</b><h3>Review</h3><p>Expert annotation can feed subsequent research iterations without silently changing the evaluation cohort.</p></article>
+    <article>
+      <b>01</b>
+      <h3>AFB detection</h3>
+      <p>YOLO-based object detection identifies candidate acid-fast bacilli and returns bounding boxes with confidence scores.</p>
+    </article>
+    <article>
+      <b>02</b>
+      <h3>Whole-slide support</h3>
+      <p>OpenSlide-based workflows support tiled processing of large microscopy slides that cannot be analyzed as a single image.</p>
+    </article>
+    <article>
+      <b>03</b>
+      <h3>Overlap handling</h3>
+      <p>Overlapping tiles improve edge coverage, while global non-maximum suppression removes duplicate detections across tile boundaries.</p>
+    </article>
+    <article>
+      <b>04</b>
+      <h3>Expert annotation</h3>
+      <p>Annotation endpoints support review and collection of labeled examples for iterative dataset development and retraining.</p>
+    </article>
+    <article>
+      <b>05</b>
+      <h3>Dataset tools</h3>
+      <p>Utilities are included for public-data ingestion, Pascal VOC conversion, train/validation/test organization, and integrity checks.</p>
+    </article>
+    <article>
+      <b>06</b>
+      <h3>Multiple compute targets</h3>
+      <p>Inference and training can use NVIDIA CUDA, Apple Metal/MPS, or CPU execution depending on the available hardware.</p>
+    </article>
+    <article>
+      <b>07</b>
+      <h3>FastAPI backend</h3>
+      <p>A REST API provides programmatic access to image analysis and annotation workflows for local applications and integrations.</p>
+    </article>
+    <article>
+      <b>08</b>
+      <h3>Research reporting</h3>
+      <p>Detection counts, processing statistics, and optional field-based smear grading can be generated when the sampling protocol is known.</p>
+    </article>
   </div>
 </section>
-<section id="validation" class="section split">
-  <div><p class="eyebrow">VALIDATION PRINCIPLES</p><h2>Metrics require their evidence.</h2><p>Performance values are intentionally withheld until the trained checkpoint, frozen split manifest, software environment and evaluation outputs can be released together.</p></div>
-  <ul class="check"><li>Slide/patient-level partitioning where identifiers permit</li><li>Independent test set kept separate from validation</li><li>Negative microscopy fields retained</li><li>Precision, recall, F1, AP50 and AP50–95</li><li>False positives per image or examined field</li><li>Threshold, model hash and error analysis reported</li></ul>
+
+<section id="workflow" class="section split">
+  <div>
+    <p class="eyebrow">WORKFLOW</p>
+    <h2>From slide image to reviewed detections.</h2>
+    <p>The system separates data preparation, model training, inference, post-processing, and expert review so each stage can be inspected and reproduced independently.</p>
+  </div>
+  <ol class="steps">
+    <li><span>01</span><div><strong>Prepare microscopy data</strong><p>Organize image and annotation sources while preserving train, validation, and test partitions.</p></div></li>
+    <li><span>02</span><div><strong>Train the detector</strong><p>Train the single-class AFB model with deterministic configuration and versioned dataset settings.</p></div></li>
+    <li><span>03</span><div><strong>Analyze images or slides</strong><p>Run direct raster inference or tiled whole-slide analysis depending on image size and format.</p></div></li>
+    <li><span>04</span><div><strong>Post-process detections</strong><p>Confidence filtering and global NMS consolidate detections across overlapping regions.</p></div></li>
+    <li><span>05</span><div><strong>Review and annotate</strong><p>Expert review can refine annotations for subsequent experiments and model iterations.</p></div></li>
+  </ol>
 </section>
-<section id="status" class="section">
-  <p class="eyebrow">CURRENT STATUS</p><h2>Code repaired; weights pending.</h2>
-  <div class="timeline"><div><span>Done</span><p>Single-class schema and safer public-data ingestion</p></div><div><span>Done</span><p>Fail-safe raster inference and overlap deduplication</p></div><div><span>Done</span><p>Field-aware research grading and regression tests</p></div><div class="pending"><span>Next</span><p>Add trained weights and frozen evaluation bundle</p></div></div>
+
+<section id="architecture" class="section">
+  <p class="eyebrow">ARCHITECTURE</p>
+  <h2>Modular components for microscopy research.</h2>
+  <div class="architecture">
+    <div><span>Input</span><strong>ZN microscopy images / WSI</strong></div>
+    <i>→</i>
+    <div><span>Imaging</span><strong>OpenCV / OpenSlide</strong></div>
+    <i>→</i>
+    <div><span>Detection</span><strong>PyTorch + Ultralytics YOLO</strong></div>
+    <i>→</i>
+    <div><span>Post-processing</span><strong>Tiling + global NMS</strong></div>
+    <i>→</i>
+    <div><span>Access</span><strong>CLI / FastAPI / Web UI</strong></div>
+  </div>
+</section>
+
+<section class="section public-note">
+  <div>
+    <p class="eyebrow">OPEN SOURCE</p>
+    <h2>Designed for transparent, reproducible development.</h2>
+  </div>
+  <p>The repository contains the source code for data preparation, training, inference, post-processing, API access, and annotation workflows. The project is intended for research and method development and should not be used as a standalone clinical diagnostic system without appropriate validation and governance.</p>
 </section>
 </main>
-<footer><span>TB-AFB Detection Research Pipeline</span><span>Apache-2.0 · Research use</span></footer>
+
+<footer>
+  <span>TB-AFB Detection System</span>
+  <span>Apache-2.0 · Research software</span>
+</footer>
+
 <script src="script.js"></script>
-</body></html>
+</body>
+</html>
