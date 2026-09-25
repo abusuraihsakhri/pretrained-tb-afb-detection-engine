@@ -30,6 +30,9 @@
   read-only runtime, dropped capabilities, and `.dockerignore` protection.
 - Updated the Roboflow client pin to a release compatible with the pinned
   OpenCV runtime and made CI invoke pytest through the selected Python runtime.
+- Updated PyTorch, Torchvision, FastAPI, Starlette's resolved dependency, and
+  python-multipart to non-vulnerable compatible releases identified by the
+  dependency audit.
 
 ### Documentation and web
 
