@@ -1,27 +1,33 @@
 import os
+import hashlib
+import secrets
 import cv2
 import numpy as np
-import torch
 import json
 import uuid
 import subprocess
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form
+from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, Request, Form, Header
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 import sys
-import glob
-import random
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 from io import BytesIO
-from typing import Any
+from typing import Any, Literal
+from collections import OrderedDict
 
 try:
     from openslide.deepzoom import DeepZoomGenerator
 except ImportError:
     DeepZoomGenerator = None
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 # Try to import YOLO if the ultralytics library is resolved
 try:
@@ -34,29 +40,73 @@ current_dir = Path(__file__).parent.resolve()
 src_dir = current_dir.parent.parent / "02_CODE" / "src"
 sys.path.append(str(src_dir))
 
-app = FastAPI(title="Secure TB AFB API Backend")
+app = FastAPI(
+    title="TB-AFB Research API",
+    description="Research-use object detection API. Not validated for diagnosis.",
+)
 
 static_dir = current_dir / "static"
 static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/ui", StaticFiles(directory=str(static_dir), html=True), name="ui")
 
-# 🛡️ SECURITY: Strict CORS baseline to prevent cross-origin medical data scraping
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:8001", "http://localhost:8001"], 
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
-MAX_FILE_SIZE = 250 * 1024 * 1024 
+
+@app.middleware("http")
+async def prevent_api_caching(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+MAX_FILE_SIZE = int(os.getenv("TB_AFB_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
+MAX_IMAGE_PIXELS = int(os.getenv("TB_AFB_MAX_IMAGE_PIXELS", "100000000"))
+MAX_ANNOTATIONS = int(os.getenv("TB_AFB_MAX_ANNOTATIONS", "10000"))
+API_TOKEN = os.getenv("TB_AFB_API_TOKEN")
+ALLOW_REMOTE_TRAINING = os.getenv("TB_AFB_ALLOW_REMOTE_TRAINING") == "1"
+EXPECTED_MODEL_SHA256 = os.getenv("TB_AFB_MODEL_SHA256")
+
+
+def require_acceptable_content_length(request: Request) -> None:
+    value = request.headers.get("content-length")
+    if value is None:
+        return
+    try:
+        declared_size = int(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Content-Length header.") from exc
+    if declared_size < 0:
+        raise HTTPException(status_code=400, detail="Invalid Content-Length header.")
+    if declared_size > MAX_FILE_SIZE:
+        limit_mib = MAX_FILE_SIZE / (1024 * 1024)
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload exceeds the configured {limit_mib:g} MiB limit.",
+        )
 
 class BoundingBox(BaseModel):
-    x: float
-    y: float
-    width: float
-    height: float
-    label: int = 0
+    x: float = Field(ge=0.0, le=1.0)
+    y: float = Field(ge=0.0, le=1.0)
+    width: float = Field(gt=0.0, le=1.0)
+    height: float = Field(gt=0.0, le=1.0)
+    label: Literal[0] = 0
+
+    @model_validator(mode="after")
+    def box_within_image(self):
+        if (
+            self.x - self.width / 2 < 0
+            or self.y - self.height / 2 < 0
+            or self.x + self.width / 2 > 1
+            or self.y + self.height / 2 > 1
+        ):
+            raise ValueError("Bounding box extends outside normalized image bounds.")
+        return self
 
 class InferenceResult(BaseModel):
     detections: list
@@ -64,10 +114,50 @@ class InferenceResult(BaseModel):
     grade: str
     hardware: str
 
+
+class ResearchReportRequest(BaseModel):
+    filename: str = Field(default="Unknown", max_length=200)
+    grade: str = Field(default="Not calculated", max_length=100)
+    hardware: str = Field(default="Unknown", max_length=100)
+    reviewer_name: str = Field(default="Not specified", max_length=100)
+    count: int = Field(default=0, ge=0, le=1_000_000)
+
+
+def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+    """Require an API key whenever the deployment configures one."""
+    if API_TOKEN and (
+        x_api_key is None or not secrets.compare_digest(x_api_key, API_TOKEN)
+    ):
+        raise HTTPException(status_code=401, detail="Valid X-API-Key required.")
+
+
+def require_mutation_key(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> None:
+    """Disable data-changing endpoints unless an explicit token is configured."""
+    if not API_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="Mutation endpoints are disabled until TB_AFB_API_TOKEN is configured.",
+        )
+    if x_api_key is None or not secrets.compare_digest(x_api_key, API_TOKEN):
+        raise HTTPException(status_code=401, detail="Valid X-API-Key required.")
+
 # 🛡️ ARCHITECTURE: Global Hot-Swap Cache for Active Learning Weights
 ACTIVE_MODEL = None
 ACTIVE_MODEL_PATH = None
 TRAINING_PROCESS = None
+
+
+@app.get("/healthz", include_in_schema=False)
+async def healthcheck():
+    checkpoint_status = local_checkpoint_status()
+    return {
+        "status": "ok",
+        "mode": "research_only",
+        "checkpoint_status": checkpoint_status,
+        "model_ready": checkpoint_status == "verified",
+    }
 
 def run_tiled_inference(model, image, tile_size=640, overlap=64, conf_thresh=0.25):
     """
@@ -77,10 +167,21 @@ def run_tiled_inference(model, image, tile_size=640, overlap=64, conf_thresh=0.2
     """
     h, w = image.shape[:2]
     detections = []
+    if overlap < 0 or overlap >= tile_size:
+        raise ValueError("overlap must be non-negative and smaller than tile_size")
     stride = tile_size - overlap
 
-    for y0 in range(0, h, stride):
-        for x0 in range(0, w, stride):
+    def positions(length):
+        if length <= tile_size:
+            return [0]
+        values = list(range(0, length - tile_size + 1, stride))
+        final = length - tile_size
+        if values[-1] != final:
+            values.append(final)
+        return values
+
+    for y0 in positions(h):
+        for x0 in positions(w):
             x1 = min(x0 + tile_size, w)
             y1 = min(y0 + tile_size, h)
             tile = image[y0:y1, x0:x1]
@@ -108,41 +209,77 @@ def run_tiled_inference(model, image, tile_size=640, overlap=64, conf_thresh=0.2
                     "bbox": [round(global_cx, 1), round(global_cy, 1), round(bw, 1), round(bh, 1)],
                     "confidence": round(conf, 2),
                     "class_id": cls,
-                    "label": "AFB_Definite" if cls == 0 else "AFB_Possible"
+                    "label": "AFB_candidate"
                 })
 
     return detections
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def local_checkpoint_status() -> str:
+    """Return a non-sensitive checkpoint integrity state for health checks."""
+    root_dir = current_dir.parent.parent.resolve()
+    model_dir = (root_dir / "03_MODELS").resolve()
+    configured = Path(
+        os.getenv("TB_AFB_MODEL_PATH", str(model_dir / "best.pt"))
+    ).resolve()
+    if not configured.is_relative_to(model_dir):
+        return "invalid_path"
+    if not configured.is_file():
+        return "missing"
+    expected_hash = EXPECTED_MODEL_SHA256
+    checksum_file = model_dir / f"{configured.name}.sha256"
+    if expected_hash is None and checksum_file.is_file():
+        parts = checksum_file.read_text(encoding="utf-8").split()
+        expected_hash = parts[0] if parts else None
+    if not expected_hash:
+        return "unpinned"
+    return (
+        "verified"
+        if secrets.compare_digest(file_sha256(configured).lower(), expected_hash.lower())
+        else "hash_mismatch"
+    )
+
+
 def load_active_model(device='cpu'):
-    """Monitors pinned checkpoint locations for newly trained YOLOv8 weights and hot-swaps them securely."""
+    """Load only the explicitly pinned local checkpoint."""
     global ACTIVE_MODEL, ACTIVE_MODEL_PATH
     
     if not ULTRALYTICS_AVAILABLE:
         return None
         
-    root_dir = current_dir.parent.parent
-    # 🛡️ SECURITY REMEDIATION: Pinned candidate check avoids recursive rglob over entire 15,000+ file datalake
-    candidate_paths = [
-        root_dir / "03_MODELS" / "best.pt",
-        root_dir / "best.pt",
-    ]
-    # Check latest training run weights if present
-    runs_dir = root_dir / "runs" / "detect"
-    if runs_dir.exists():
-        run_weights = sorted(runs_dir.glob("*/weights/best.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
-        candidate_paths.extend(run_weights)
-        
-    valid_weights = [p for p in candidate_paths if p.is_file()]
-    if not valid_weights:
+    root_dir = current_dir.parent.parent.resolve()
+    model_dir = (root_dir / "03_MODELS").resolve()
+    configured = Path(os.getenv("TB_AFB_MODEL_PATH", str(model_dir / "best.pt"))).resolve()
+    if not configured.is_relative_to(model_dir):
+        raise RuntimeError("TB_AFB_MODEL_PATH must remain inside 03_MODELS.")
+    if not configured.is_file():
         return None
-        
-    latest_path = str(valid_weights[0])
-    
-    # Execute the Hot-Swap if new weights are detected
-    if latest_path != ACTIVE_MODEL_PATH:
-        ACTIVE_MODEL_PATH = latest_path
-        print(f"[ACTIVE LEARNING] 🚀 Hot-swapping to new Brain: {ACTIVE_MODEL_PATH}")
-        ACTIVE_MODEL = YOLO(ACTIVE_MODEL_PATH)
+
+    digest = file_sha256(configured)
+    expected_hash = EXPECTED_MODEL_SHA256
+    checksum_file = model_dir / f"{configured.name}.sha256"
+    if expected_hash is None and checksum_file.is_file():
+        parts = checksum_file.read_text(encoding="utf-8").split()
+        expected_hash = parts[0] if parts else None
+    if not expected_hash:
+        raise RuntimeError("Pinned checkpoint SHA-256 is required before inference.")
+    if not secrets.compare_digest(digest.lower(), expected_hash.lower()):
+        raise RuntimeError("Pinned checkpoint SHA-256 verification failed.")
+
+    identity = f"{configured}:{digest}"
+    if identity != ACTIVE_MODEL_PATH:
+        ACTIVE_MODEL_PATH = identity
+        print(f"Loading pinned research checkpoint: {configured.name} ({digest[:12]}...)")
+        ACTIVE_MODEL = YOLO(str(configured))
+        if hasattr(ACTIVE_MODEL, "to"):
+            ACTIVE_MODEL.to(str(device))
         
     return ACTIVE_MODEL
 
@@ -155,16 +292,18 @@ def sanitize_pdf_text(text: Any) -> str:
     return s.encode("latin-1", "replace").decode("latin-1")
 
 @app.post("/api/v1/analyze", response_model=InferenceResult)
-async def analyze_slide(request: Request, file: UploadFile = File(...)):
+async def analyze_slide(
+    request: Request,
+    file: UploadFile = File(...),
+    _: None = Depends(require_api_key),
+):
     """Research inference endpoint for ordinary raster microscopy images.
 
     Proprietary WSI formats are intentionally rejected here. They require
     OpenSlide-backed file handling rather than cv2.imdecode. This prevents an
     unreadable WSI from being misreported as a negative specimen.
     """
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (250 MB limit).")
+    require_acceptable_content_length(request)
 
     filename = (file.filename or "").lower()
     allowed_exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -174,12 +313,16 @@ async def analyze_slide(request: Request, file: UploadFile = File(...)):
             detail="This endpoint accepts raster microscopy images only. Use the OpenSlide/CLI workflow for WSI files.",
         )
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
+    if torch is not None and torch.cuda.is_available():
+        device = "cuda"
+    elif (
+        torch is not None
+        and hasattr(torch.backends, "mps")
+        and torch.backends.mps.is_available()
+    ):
+        device = "mps"
     else:
-        device = torch.device("cpu")
+        device = "cpu"
 
     yolo_model = load_active_model(device=device)
     if yolo_model is None:
@@ -190,10 +333,15 @@ async def analyze_slide(request: Request, file: UploadFile = File(...)):
 
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (250 MB limit).")
+        raise HTTPException(status_code=413, detail="Upload exceeds the configured size limit.")
     image = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
     if image is None:
         raise HTTPException(status_code=415, detail="Image could not be decoded.")
+    if image.shape[0] * image.shape[1] > MAX_IMAGE_PIXELS:
+        raise HTTPException(
+            status_code=413,
+            detail="Decoded image dimensions exceed the configured pixel limit.",
+        )
 
     detections = run_tiled_inference(
         yolo_model, image, tile_size=640, overlap=64, conf_thresh=0.25
@@ -215,7 +363,7 @@ async def analyze_slide(request: Request, file: UploadFile = File(...)):
         "cuda": "NVIDIA CUDA",
         "mps": "Apple Metal/MPS",
         "cpu": "CPU",
-    }.get(device.type, device.type)
+    }.get(device, device)
 
     return InferenceResult(
         detections=detections,
@@ -225,15 +373,23 @@ async def analyze_slide(request: Request, file: UploadFile = File(...)):
     )
 
 @app.post("/api/v1/save_annotation")
-async def save_annotation(request: Request, file: UploadFile = File(...), boxes: str = Form(...)):
-    if int(request.headers.get('content-length', 0)) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large.")
+async def save_annotation(
+    request: Request,
+    file: UploadFile = File(...),
+    boxes: str = Form(...),
+    _: None = Depends(require_mutation_key),
+):
+    require_acceptable_content_length(request)
         
     try:
         boxes_list = json.loads(boxes)
+        if not isinstance(boxes_list, list):
+            raise ValueError("boxes must be a JSON array")
+        if len(boxes_list) > MAX_ANNOTATIONS:
+            raise ValueError(f"annotation limit is {MAX_ANNOTATIONS}")
         parsed_boxes = [BoundingBox(**b) for b in boxes_list]
-    except Exception:
-        raise HTTPException(status_code=400, detail="Malformed JSON injection attempt blocked.")
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid annotation payload: {exc}")
     
     # 🛡️ SECURITY REMEDIATION: Validate image binary decoding before saving to prevent corrupt/arbitrary file upload
     contents = await file.read()
@@ -244,24 +400,30 @@ async def save_annotation(request: Request, file: UploadFile = File(...), boxes:
     decoded_img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     if decoded_img is None or decoded_img.size == 0:
         raise HTTPException(status_code=415, detail="Corrupt or non-image binary uploaded.")
+    if decoded_img.shape[0] * decoded_img.shape[1] > MAX_IMAGE_PIXELS:
+        raise HTTPException(
+            status_code=413,
+            detail="Decoded image dimensions exceed the configured pixel limit.",
+        )
 
     base_name = uuid.uuid4().hex
-    safe_img_name = f"{base_name}.jpg"
+    safe_img_name = f"{base_name}.png"
     safe_lbl_name = f"{base_name}.txt"
-    
-    # 🛡️ VALIDATION SPLIT: Randomized 20% logic for clinical data hygiene
-    sub_folder = "val" if random.random() < 0.20 else "train"
-    
-    data_dir = current_dir.parent.parent / "01_DATA" / "processed_tiles" / sub_folder
+
+    # Submitted annotations enter a review queue. They are never assigned to a
+    # split automatically because the patient/slide grouping is unknown here.
+    data_dir = current_dir.parent.parent / "01_DATA" / "review_queue"
     img_dir = data_dir / "images"
     lbl_dir = data_dir / "labels"
     
     img_dir.mkdir(parents=True, exist_ok=True)
     lbl_dir.mkdir(parents=True, exist_ok=True)
     
-    # Save Image bytes
+    encoded_ok, encoded_image = cv2.imencode(".png", decoded_img)
+    if not encoded_ok:
+        raise HTTPException(status_code=500, detail="Image could not be normalized for storage.")
     with open(img_dir / safe_img_name, "wb") as f:
-        f.write(contents)
+        f.write(encoded_image.tobytes())
         
     # YOLO format extraction
     with open(lbl_dir / safe_lbl_name, "w", encoding="utf-8") as f:
@@ -269,13 +431,22 @@ async def save_annotation(request: Request, file: UploadFile = File(...), boxes:
             f.write(f"{b.label} {b.x} {b.y} {b.width} {b.height}\n")
              
     return {
-        "status": "success", 
-        "message": f"Ingested {len(parsed_boxes)} ground-truth annotations into {sub_folder.upper()} set!"
+        "status": "queued",
+        "record_id": base_name,
+        "message": (
+            f"Queued {len(parsed_boxes)} annotations for provenance review and "
+            "group-aware split assignment."
+        ),
     }
 
 @app.post("/api/v1/trigger_training")
-async def trigger_training():
+async def trigger_training(_: None = Depends(require_mutation_key)):
     global TRAINING_PROCESS
+    if not ALLOW_REMOTE_TRAINING:
+        raise HTTPException(
+            status_code=403,
+            detail="Remote training is disabled. Set TB_AFB_ALLOW_REMOTE_TRAINING=1 explicitly.",
+        )
     # 🛡️ SECURITY REMEDIATION: Prevent multiple concurrent background processes (Process Bombing / DoS)
     if TRAINING_PROCESS is not None and TRAINING_PROCESS.poll() is None:
         raise HTTPException(
@@ -298,25 +469,37 @@ async def trigger_training():
             raise HTTPException(status_code=500, detail="data.yaml configuration missing.")
 
     TRAINING_PROCESS = subprocess.Popen([sys.executable, str(train_script), "--data", str(data_yaml)])
-    return {"status": "success", "message": "Neural Training has been allocated."}
+    return {"status": "started", "message": "Research training preflight started."}
 
 @app.post("/api/v1/render_payload")
-async def render_payload(request: Request, file: UploadFile = File(...)):
-    if int(request.headers.get('content-length', 0)) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. (250MB Hard Limit)")
+async def render_payload(
+    request: Request,
+    file: UploadFile = File(...),
+    _: None = Depends(require_api_key),
+):
+    require_acceptable_content_length(request)
         
     contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="Upload exceeds the configured size limit.")
     image_array = np.frombuffer(contents, np.uint8)
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     
     if image is None:
-        raise HTTPException(status_code=415, detail="Backend CV2 Decoder failed to parse this specific Medical Binary structure. Ensure you upload supported patches (TIFF, JP2, JPG, PNG).")
+        raise HTTPException(
+            status_code=415,
+            detail="The image could not be decoded. Use an ordinary JPG, PNG, or TIFF raster image.",
+        )
+    if image.shape[0] * image.shape[1] > MAX_IMAGE_PIXELS:
+        raise HTTPException(status_code=413, detail="Decoded image exceeds the pixel limit.")
         
-    _, encoded_img = cv2.imencode('.jpg', image)
+    encoded_ok, encoded_img = cv2.imencode('.jpg', image)
+    if not encoded_ok:
+        raise HTTPException(status_code=500, detail="Image preview could not be encoded.")
     return Response(content=encoded_img.tobytes(), media_type="image/jpeg")
 
 @app.get("/api/v1/stats")
-async def get_stats():
+async def get_stats(_: None = Depends(require_api_key)):
     # 🛡️ SECURITY: Safe enumeration of dataset to expose metrics without Arbitrary File Reads
     train_dir = current_dir.parent.parent / "01_DATA" / "processed_tiles" / "train"
     img_dir = train_dir / "images"
@@ -345,51 +528,78 @@ async def get_stats():
     }
 
 @app.post("/api/v1/export_report")
-async def export_report(data: dict):
-    # 🛡️ SECURITY: Structured PDF generation avoiding arbitrary HTML rendering and Unicode crashes
+async def export_report(
+    data: ResearchReportRequest,
+    _: None = Depends(require_mutation_key),
+):
     pdf = FPDF()
     pdf.add_page()
     
-    filename = sanitize_pdf_text(data.get('filename', 'Unknown'))
-    grade = sanitize_pdf_text(data.get('grade', 'Pending'))
-    hardware = sanitize_pdf_text(data.get('hardware', 'CPU'))
-    pathologist_name = sanitize_pdf_text(data.get('pathologist_name', 'Not Specified'))
-    count = int(data.get('count', 0))
+    filename = sanitize_pdf_text(data.filename)
+    grade = sanitize_pdf_text(data.grade)
+    hardware = sanitize_pdf_text(data.hardware)
+    reviewer_name = sanitize_pdf_text(data.reviewer_name)
+    count = data.count
     
     # Branded Header
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="TB PATHOLOGY INTELLIGENCE REPORT", ln=True, align='C')
-    pdf.set_font("Arial", size=10)
-    pdf.cell(200, 10, txt=f"Report ID: {uuid.uuid4().hex[:8].upper()}", ln=True, align='C')
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(
+        0,
+        10,
+        text="TB-AFB RESEARCH INFERENCE REPORT",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+        align="C",
+    )
+    pdf.set_font("Helvetica", size=10)
+    pdf.cell(
+        0,
+        10,
+        text=f"Report ID: {uuid.uuid4().hex[:8].upper()}",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+        align="C",
+    )
     pdf.ln(10)
     
-    # Clinical Data
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="DIAGNOSTIC SUMMARY", ln=True)
-    pdf.set_font("Arial", size=11)
-    pdf.cell(200, 8, txt=f"Analysis Target: {filename}", ln=True)
-    pdf.cell(200, 8, txt=f"WHO Grade: {grade}", ln=True)
-    pdf.cell(200, 8, txt=f"AFB Detections Count: {count}", ln=True)
-    pdf.cell(200, 8, txt=f"Hardware Backend: {hardware}", ln=True)
-    pdf.cell(200, 8, txt=f"Reporting Pathologist: {pathologist_name}", ln=True)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 10, text="RESEARCH SUMMARY", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("Helvetica", size=11)
+    for line in (
+        f"Analysis Target: {filename}",
+        f"Research smear category: {grade}",
+        f"AFB candidate count: {count}",
+        f"Hardware Backend: {hardware}",
+        f"Research reviewer: {reviewer_name}",
+    ):
+        pdf.cell(0, 8, text=line, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     
     pdf.ln(20)
     pdf.set_draw_color(200, 200, 200)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(10)
     
-    # Medical Disclaimer
-    pdf.set_font("Arial", 'I', 8)
-    pdf.multi_cell(0, 5, txt="DISCLAIMER: This report is generated by an Artificial Intelligence system. It is intended for research and diagnostic assistance only and must be confirmed by a licensed professional before clinical action is taken.")
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.multi_cell(0, 5, text=(
+        "RESEARCH USE ONLY: This experimental output is not validated to diagnose "
+        "tuberculosis, identify Mycobacterium tuberculosis, grade a clinical smear, "
+        "or guide patient care. AFB microscopy is not species-specific."
+    ))
     
-    pdf_output = pdf.output(dest='S')
-    return Response(content=pdf_output, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=TB_AFB_Report.pdf"})
+    pdf_output = bytes(pdf.output())
+    return Response(content=pdf_output, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=TB_AFB_Research_Report.pdf"})
 
-# 🛡️ GLOBAL CACHE FOR WSI TILES
-WSI_HANDLES = {}
+WSI_HANDLES = OrderedDict()
+MAX_WSI_HANDLES = int(os.getenv("TB_AFB_MAX_WSI_HANDLES", "4"))
 
 @app.get("/api/v1/wsi/tile/{wsi_id}/{z}/{x}/{y}")
-async def get_wsi_tile(wsi_id: str, z: int, x: int, y: int):
+async def get_wsi_tile(
+    wsi_id: str,
+    z: int,
+    x: int,
+    y: int,
+    _: None = Depends(require_api_key),
+):
     # Dynamic tile server for OpenSeadragon
     if not DeepZoomGenerator:
         raise HTTPException(status_code=501, detail="OpenSlide DeepZoom not available on this host.")
@@ -397,6 +607,8 @@ async def get_wsi_tile(wsi_id: str, z: int, x: int, y: int):
     # Security: Ensure WSI_ID is not a path injection
     # 🛡️ REMEDIATION: Force filename-only resolution and strict is_relative_to validation
     safe_wsi_id = Path(wsi_id).name
+    if safe_wsi_id != wsi_id:
+        raise HTTPException(status_code=400, detail="Invalid WSI identifier.")
     base_data_dir = (current_dir.parent.parent / "01_DATA" / "raw_tiles").resolve()
     wsi_path = (base_data_dir / safe_wsi_id).resolve()
     
@@ -408,15 +620,23 @@ async def get_wsi_tile(wsi_id: str, z: int, x: int, y: int):
         if os.path.commonpath([str(wsi_path), str(base_data_dir)]) != str(base_data_dir):
             raise HTTPException(status_code=403, detail="Airtight Jail Breach Attempt Blocked.")
     
+    if not wsi_path.is_file():
+        raise HTTPException(status_code=404, detail="WSI file not found.")
+
     if wsi_id not in WSI_HANDLES:
         import openslide
         try:
             slide = openslide.OpenSlide(str(wsi_path))
-            WSI_HANDLES[wsi_id] = DeepZoomGenerator(slide, tile_size=254, overlap=1, limit_bounds=False)
+            dz = DeepZoomGenerator(slide, tile_size=254, overlap=1, limit_bounds=False)
+            WSI_HANDLES[wsi_id] = (slide, dz)
+            while len(WSI_HANDLES) > MAX_WSI_HANDLES:
+                _, (old_slide, _) = WSI_HANDLES.popitem(last=False)
+                old_slide.close()
         except Exception:
             raise HTTPException(status_code=404, detail="WSI file not found or corrupted.")
-            
-    dz = WSI_HANDLES[wsi_id]
+
+    slide, dz = WSI_HANDLES.pop(wsi_id)
+    WSI_HANDLES[wsi_id] = (slide, dz)
     try:
         tile = dz.get_tile(z, (x, y))
         buf = BytesIO()

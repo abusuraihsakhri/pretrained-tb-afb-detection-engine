@@ -1,18 +1,17 @@
 @echo off
 echo =======================================================
-echo     TB PATHOLOGY INTELLIGENCE - WSI TILE EXTRACTOR
+echo     TB-AFB RESEARCH WSI TILE EXTRACTOR
 echo =======================================================
 echo.
-set /p wsi_path="Enter the absolute path to your medical WSI file (e.g., C:\slides\patient_1.svs): "
+set /p wsi_path="Enter the absolute path to a de-identified research WSI: "
 
 echo.
-echo Initiating Native Deep Zoom CPU Extraction Array...
-echo System Target: Multi-core CPU + SSD I/O Stream
+echo Starting local tile extraction...
 echo.
 
 python 02_CODE\scripts\01_extract_tiles.py --wsi "%wsi_path%"
 
 echo.
-echo Extraction Pipeline Terminated. 
-echo All clinical tiles have been securely written to 01_DATA\raw_tiles\.
+echo Extraction finished.
+echo Research tiles were written to 01_DATA\raw_tiles\.
 pause

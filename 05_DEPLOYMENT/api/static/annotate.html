@@ -1,65 +1,82 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Active Learning Annotation | TB AFB</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <!-- 🛡️ SECURITY: Strict Content Security Policy avoiding Inline execution -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Annotation Review Queue | TB-AFB</title>
+  <meta name="description" content="Local interface for queuing de-identified AFB research annotations for provenance review.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="annotate.js" defer></script>
 </head>
 <body>
-    <div class="app-container glassmorphism" style="max-width: 1200px;">
-        <header>
-            <h1><span class="highlight">Active Learning</span> Annotation Engine</h1>
-            <p style="margin-top: 5px; font-weight: 600; color: var(--accent-vibrant); font-size: 1.1rem;">Developed by Dr. Abu Suraih Sakhri</p>
-            <p>1. Upload Slide | 2. Draw Exact Bounds over Bacilli | 3. Submit to Neural Network</p>
-        </header>
+  <div class="shell">
+    <header class="app-header">
+      <div>
+        <h1>Annotation review queue</h1>
+        <p>Draw or enter candidate AFB boxes. Submitted records enter a review queue and are not assigned automatically to training or validation.</p>
+      </div>
+      <nav class="app-nav" aria-label="Application navigation">
+        <a href="index.html">Inference</a>
+        <a href="annotate.html" aria-current="page">Annotation queue</a>
+        <a href="/docs">API</a>
+      </nav>
+    </header>
 
-        <main style="display: flex; gap: 30px;">
-            <!-- Upload & Control Panel -->
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
-                <div class="upload-zone" id="drop-zone" style="padding: 40px 20px;">
-                    <h3>Upload Reference Slide</h3>
-                    <p>Supports .JPG .PNG .TIFF .JP2 .DCM</p>
-                    <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.tiff,.tif,.ptif,.ptiff,.ome.tif,.ome.tiff,.jp2,.j2k,.jpf,.jpx,.svs,.ndpi,.vms,.vmu,.scn,.bif,.mrxs,.dicom,.dcm" hidden>
-                </div>
-                
-                <div class="metric-card" style="text-align: left;">
-                    <h4 style="color: var(--accent-vibrant);">Annotation Tools</h4>
-                    <p style="font-size: 0.9rem; color: #475569; margin-bottom: 15px;">Click & Drag on the image to draw bounding boxes around valid AFB rods.</p>
-                    <button id="clear-btn" style="width:100%; padding: 10px; background: var(--text-muted); color: white; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">Clear Boxes</button>
-                    <button id="submit-btn" style="width:100%; padding: 15px; background: var(--accent-vibrant); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Save Annotation to Dataset</button>
-                    <button id="train-btn" style="width:100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 15px;">Inject YOLO Target Training</button>
-                </div>
-                
-                <div class="metric-card" style="text-align: left; background: rgba(239, 246, 255, 0.9); border: 1px solid var(--border-color);">
-                    <h4 style="color: var(--accent-vibrant); margin-bottom: 15px;">Deep Learning Dataset Integity</h4>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #cbd5e1;">
-                        <span style="font-weight: 500;">Stored Slides:</span> <span id="stat-slides" style="font-weight: 600; color: var(--success);">0</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #cbd5e1;">
-                        <span style="font-weight: 500;">AFB Vectors Annotated:</span> <span id="stat-boxes" style="font-weight: 600; color: var(--success);">0</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="font-weight: 500;">YOLO Weights Target:</span> <span id="stat-model" style="font-weight: 600; color: var(--danger);">Not Deployed</span>
-                    </div>
-                </div>
-
-                <div id="status-text" style="color: var(--text-muted); font-weight: 500;">Waiting for operation...</div>
-            </div>
-
-            <!-- Annotation Editor -->
-            <div style="flex: 2; position: relative;">
-                <div class="preview-container" style="background: #e2e8f0; height: 600px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 2px solid var(--border-color); border-radius: 12px;">
-                    <span id="canvas-placeholder" style="color: #64748b;">Drop an image here to begin annotating...</span>
-                    <!-- The canvas handles the image and drawn rects -->
-                    <canvas id="annotate-canvas" style="position: absolute; top: 0; left: 0; display: none; cursor: crosshair;"></canvas>
-                </div>
-            </div>
-        </main>
+    <div class="status-banner" role="note">
+      <strong>De-identified research data only.</strong> Do not upload patient identifiers. A curator must verify source, license, specimen grouping, and split assignment after submission.
     </div>
-    <script src="annotate.js"></script>
+
+    <main class="workspace">
+      <section class="panel" aria-labelledby="controls-title">
+        <div class="panel-header">
+          <h2 id="controls-title">Annotation controls</h2>
+          <p>Normalized coordinates range from 0 to 1.</p>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label for="api-token">API token <span aria-hidden="true">*</span></label>
+            <input id="api-token" type="password" required autocomplete="off" spellcheck="false">
+            <small>Required for queue submission; kept in this page session only.</small>
+          </div>
+          <label class="file-label" for="file-input">
+            <span id="file-label-text">Choose a JPG or PNG research image</span>
+            <input id="file-input" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+          </label>
+
+          <fieldset>
+            <legend>Add a box numerically</legend>
+            <div class="coordinate-grid">
+              <div class="field"><label for="box-x">Center X</label><input id="box-x" type="number" min="0" max="1" step="0.001" value="0.5"></div>
+              <div class="field"><label for="box-y">Center Y</label><input id="box-y" type="number" min="0" max="1" step="0.001" value="0.5"></div>
+              <div class="field"><label for="box-width">Width</label><input id="box-width" type="number" min="0.001" max="1" step="0.001" value="0.05"></div>
+              <div class="field"><label for="box-height">Height</label><input id="box-height" type="number" min="0.001" max="1" step="0.001" value="0.02"></div>
+            </div>
+            <button id="add-box-button" type="button">Add numeric box</button>
+          </fieldset>
+
+          <h3>Queued boxes</h3>
+          <ol id="box-list" class="box-list"><li>No boxes added.</li></ol>
+          <div class="button-row">
+            <button id="clear-button" class="danger" type="button">Clear all boxes</button>
+            <button id="submit-button" class="primary" type="button" disabled>Submit to review queue</button>
+          </div>
+          <p id="status" class="status" role="status" aria-live="polite">Choose an image to begin.</p>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="editor-title">
+        <div class="panel-header">
+          <h2 id="editor-title">Pointer editor</h2>
+          <p>Drag over the image to add a box. Keyboard users can use the normalized coordinate form.</p>
+        </div>
+        <div class="preview">
+          <p id="empty-state" class="empty-state">No image selected.</p>
+          <canvas id="annotation-canvas" hidden aria-label="Research image annotation surface"></canvas>
+        </div>
+      </section>
+    </main>
+  </div>
 </body>
 </html>

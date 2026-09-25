@@ -1,229 +1,203 @@
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const canvas = document.getElementById('annotate-canvas');
-const ctx = canvas.getContext('2d');
-const placeholder = document.getElementById('canvas-placeholder');
-const statusText = document.getElementById('status-text');
+(() => {
+  const fileInput = document.querySelector('#file-input');
+  const fileLabel = document.querySelector('#file-label-text');
+  const tokenInput = document.querySelector('#api-token');
+  const canvas = document.querySelector('#annotation-canvas');
+  const context = canvas.getContext('2d');
+  const emptyState = document.querySelector('#empty-state');
+  const boxList = document.querySelector('#box-list');
+  const submitButton = document.querySelector('#submit-button');
+  const status = document.querySelector('#status');
+  let selectedFile = null;
+  let image = null;
+  let boxes = [];
+  let drawing = null;
 
-let isDrawing = false;
-let startX = 0;
-let startY = 0;
-let boxes = [];
-let imgObj = null;
-let currentFile = null;
-let scaleRatio = 1.0;
+  function setStatus(message, state = '') {
+    status.textContent = message;
+    status.dataset.state = state;
+  }
 
-function setStatus(msg) { statusText.textContent = msg; console.log("[Annotation]:", msg); }
+  function boxIsValid(box) {
+    return box.width > 0 && box.height > 0
+      && box.x - box.width / 2 >= 0 && box.x + box.width / 2 <= 1
+      && box.y - box.height / 2 >= 0 && box.y + box.height / 2 <= 1;
+  }
 
-async function refreshKPIs() {
-    try {
-        const resp = await fetch("/api/v1/stats");
-        if(resp.ok) {
-            const data = await resp.json();
-            document.getElementById("stat-slides").textContent = data.images_annotated;
-            document.getElementById("stat-boxes").textContent = data.afb_instances;
-            const mBadge = document.getElementById("stat-model");
-            if (data.model_deployed) {
-                 mBadge.textContent = "HOT-MOUNTED";
-                 mBadge.style.color = "var(--success)";
-            } else {
-                 mBadge.textContent = "Fallback Active";
-                 mBadge.style.color = "var(--danger)";
-            }
-        }
-    } catch(err) { console.log("Failed updating dataset schema counts", err); }
-}
-
-// Spin up KPIs immediately
-refreshKPIs();
-
-dropZone.addEventListener('click', () => fileInput.click());
-
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
-});
-dropZone.addEventListener('drop', (e) => {
-    if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
-}, false);
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length) loadFile(e.target.files[0]);
-});
-
-function loadFile(file) {
-    currentFile = file;
-    boxes = [];
-    
-    const filename = file.name.toLowerCase();
-    const isBrowserNative = filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png') || filename.endsWith('.webp');
-
-    setStatus(`Processing ${file.name}...`);
-    
-    if (isBrowserNative) {
-        // Direct Client-Side render
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            renderImageToCanvas(e.target.result);
-        };
-        reader.readAsDataURL(file);
-    } else {
-        // Server-Side Render for Complex Microscopy formats (TIFF, JP2, DICOM)
-        setStatus(`Routing ${filename} to Secure Server Decoder...`);
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        fetch('/api/v1/render_payload', { method: 'POST', body: formData })
-        .then(async response => {
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || "Backend CV2 decode failed.");
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            const objectUrl = URL.createObjectURL(blob);
-            renderImageToCanvas(objectUrl);
-        })
-        .catch(err => {
-            alert("Secure Decoder Exception: " + err.message);
-            setStatus("Visual Decode Failed.");
-            placeholder.style.display = 'block';
-        });
-    }
-}
-
-function renderImageToCanvas(srcUrl) {
-    const img = new Image();
-    img.onload = () => {
-        imgObj = img;
-        placeholder.style.display = 'none';
-        canvas.style.display = 'block';
-        
-        // Setup canvas keeping aspect ratio and fitting within 600px height bounding box
-        const containerW = canvas.parentElement.clientWidth;
-        const containerH = canvas.parentElement.clientHeight;
-        
-        const wRatio = containerW / img.width;
-        const hRatio = containerH / img.height;
-        scaleRatio = Math.min(wRatio, hRatio, 1.0);
-        
-        canvas.width = img.width * scaleRatio;
-        canvas.height = img.height * scaleRatio;
-        
-        redraw();
-        setStatus("Ready to annotate " + currentFile.name);
-    };
-    img.src = srcUrl;
-}
-
-function redraw() {
-    if (!imgObj) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(imgObj, 0, 0, canvas.width, canvas.height);
-    
-    // Draw all saved boxes
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#2563eb'; // Vibrant Blue
-    
-    boxes.forEach(b => {
-        ctx.strokeRect(b.c_x * scaleRatio, b.c_y * scaleRatio, b.c_w * scaleRatio, b.c_h * scaleRatio);
+  function render() {
+    if (!image) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    context.lineWidth = Math.max(2, canvas.width / 700);
+    context.strokeStyle = '#176b4d';
+    boxes.forEach((box) => {
+      context.strokeRect(
+        (box.x - box.width / 2) * canvas.width,
+        (box.y - box.height / 2) * canvas.height,
+        box.width * canvas.width,
+        box.height * canvas.height,
+      );
     });
-}
+    if (drawing) {
+      context.strokeStyle = '#a82c2c';
+      context.strokeRect(drawing.x, drawing.y, drawing.width, drawing.height);
+    }
+  }
 
-// Mouse event tracking to draw rectangles
-canvas.addEventListener('mousedown', (e) => {
-    isDrawing = true;
-    const rect = canvas.getBoundingClientRect();
-    startX = e.clientX - rect.left;
-    startY = e.clientY - rect.top;
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    if (!isDrawing) return;
-    const rect = canvas.getBoundingClientRect();
-    const currX = e.clientX - rect.left;
-    const currY = e.clientY - rect.top;
-    
-    redraw();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#dc2626'; // Red active box
-    ctx.strokeRect(startX, startY, currX - startX, currY - startY);
-});
-
-canvas.addEventListener('mouseup', (e) => {
-    if (!isDrawing) return;
-    isDrawing = false;
-    
-    const rect = canvas.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
-    
-    // Calculate raw dimensions
-    let rx = Math.min(startX, endX);
-    let ry = Math.min(startY, endY);
-    let rw = Math.abs(endX - startX);
-    let rh = Math.abs(endY - startY);
-    
-    // Ignore tiny accidental clicks (must be > 5 pixels)
-    if (rw > 5 && rh > 5) {
-        // Store coordinates un-scaled mapped to YOLO (x_center, y_center, width, height) relative 0.0-1.0
-        const true_cx = ((rx + rw/2) / scaleRatio) / imgObj.naturalWidth;
-        const true_cy = ((ry + rh/2) / scaleRatio) / imgObj.naturalHeight;
-        const true_w = (rw / scaleRatio) / imgObj.naturalWidth;
-        const true_h = (rh / scaleRatio) / imgObj.naturalHeight;
-        
-        boxes.push({
-            c_x: rx / scaleRatio, c_y: ry / scaleRatio, c_w: rw / scaleRatio, c_h: rh / scaleRatio,
-            yolo_x: true_cx, yolo_y: true_cy, yolo_w: true_w, yolo_h: true_h,
-            label: 0
+  function renderList() {
+    boxList.replaceChildren();
+    if (!boxes.length) {
+      const item = document.createElement('li');
+      item.textContent = 'No boxes added.';
+      boxList.appendChild(item);
+    } else {
+      boxes.forEach((box, index) => {
+        const item = document.createElement('li');
+        item.textContent = `${index + 1}: x ${box.x.toFixed(3)}, y ${box.y.toFixed(3)}, w ${box.width.toFixed(3)}, h ${box.height.toFixed(3)} `;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = `Remove box ${index + 1}`;
+        remove.addEventListener('click', () => {
+          boxes.splice(index, 1);
+          renderList();
+          render();
         });
-        setStatus(`Added Box ${boxes.length}`);
+        item.appendChild(remove);
+        boxList.appendChild(item);
+      });
     }
-    redraw();
-});
+    submitButton.disabled = !selectedFile || boxes.length === 0;
+  }
 
-document.getElementById('clear-btn').addEventListener('click', () => { boxes = []; redraw(); setStatus("Cleared boxes."); });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    selectedFile = file;
+    boxes = [];
+    fileLabel.textContent = file.name;
+    const url = URL.createObjectURL(file);
+    const preview = new Image();
+    preview.onload = () => {
+      URL.revokeObjectURL(url);
+      image = preview;
+      const maxWidth = 1400;
+      const scale = Math.min(1, maxWidth / image.naturalWidth);
+      canvas.width = Math.round(image.naturalWidth * scale);
+      canvas.height = Math.round(image.naturalHeight * scale);
+      canvas.hidden = false;
+      emptyState.hidden = true;
+      renderList();
+      render();
+      setStatus('Image ready. Add candidate boxes for review.');
+    };
+    preview.onerror = () => {
+      URL.revokeObjectURL(url);
+      setStatus('The selected image cannot be rendered in this browser.', 'error');
+    };
+    preview.src = url;
+  });
 
-document.getElementById('submit-btn').addEventListener('click', async () => {
-    if (!currentFile || boxes.length === 0) {
-        alert("Clinical Form Error: Cannot dispatch empty JSON array. Please upload and box an image.");
-        return;
+  document.querySelector('#add-box-button').addEventListener('click', () => {
+    if (!selectedFile) {
+      setStatus('Choose an image before adding boxes.', 'error');
+      return;
     }
-    
+    const box = {
+      x: Number(document.querySelector('#box-x').value),
+      y: Number(document.querySelector('#box-y').value),
+      width: Number(document.querySelector('#box-width').value),
+      height: Number(document.querySelector('#box-height').value),
+      label: 0,
+    };
+    if (!boxIsValid(box)) {
+      setStatus('Box must have positive size and remain fully inside the image.', 'error');
+      return;
+    }
+    boxes.push(box);
+    renderList();
+    render();
+    setStatus(`Added box ${boxes.length}.`, 'success');
+  });
+
+  canvas.addEventListener('pointerdown', (event) => {
+    canvas.setPointerCapture(event.pointerId);
+    const bounds = canvas.getBoundingClientRect();
+    drawing = { startX: event.clientX - bounds.left, startY: event.clientY - bounds.top, x: 0, y: 0, width: 0, height: 0 };
+  });
+
+  canvas.addEventListener('pointermove', (event) => {
+    if (!drawing) return;
+    const bounds = canvas.getBoundingClientRect();
+    const endX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left));
+    const endY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+    const scaleX = canvas.width / bounds.width;
+    const scaleY = canvas.height / bounds.height;
+    drawing.x = Math.min(drawing.startX, endX) * scaleX;
+    drawing.y = Math.min(drawing.startY, endY) * scaleY;
+    drawing.width = Math.abs(endX - drawing.startX) * scaleX;
+    drawing.height = Math.abs(endY - drawing.startY) * scaleY;
+    render();
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    if (!drawing) return;
+    const candidate = {
+      x: (drawing.x + drawing.width / 2) / canvas.width,
+      y: (drawing.y + drawing.height / 2) / canvas.height,
+      width: drawing.width / canvas.width,
+      height: drawing.height / canvas.height,
+      label: 0,
+    };
+    drawing = null;
+    if (candidate.width >= 0.003 && candidate.height >= 0.003 && boxIsValid(candidate)) {
+      boxes.push(candidate);
+      setStatus(`Added box ${boxes.length}.`, 'success');
+    } else {
+      setStatus('Ignored a very small or out-of-bounds pointer box.', 'error');
+    }
+    renderList();
+    render();
+  });
+
+  document.querySelector('#clear-button').addEventListener('click', () => {
+    if (!boxes.length || window.confirm('Clear all unsaved boxes?')) {
+      boxes = [];
+      renderList();
+      render();
+      setStatus('Unsaved boxes cleared.');
+    }
+  });
+
+  submitButton.addEventListener('click', async () => {
+    const token = tokenInput.value.trim();
+    if (!token) {
+      setStatus('An API token is required for queue submission.', 'error');
+      tokenInput.focus();
+      return;
+    }
     const formData = new FormData();
-    formData.append('file', currentFile);
-    
-    // Format boxes for Python Pydantic Schema
-    const uploadBoxes = boxes.map(b => ({
-       x: b.yolo_x, y: b.yolo_y, width: b.yolo_w, height: b.yolo_h, label: b.label
-    }));
-    formData.append('boxes', JSON.stringify(uploadBoxes));
-    
-    setStatus("Encrypting boundaries and uploading to GPU Volume...");
-    
+    formData.append('file', selectedFile);
+    formData.append('boxes', JSON.stringify(boxes));
+    submitButton.disabled = true;
+    setStatus('Submitting to the provenance review queue…');
     try {
-        const resp = await fetch("/api/v1/save_annotation", { method: "POST", body: formData });
-        const json = await resp.json();
-        if(!resp.ok) throw new Error(json.detail);
-        
-        setStatus(json.message);
-        boxes = [];
-        redraw();
-        refreshKPIs(); // Refresh visual count safely
-    } catch (err) {
-        alert("API Save Failure: " + err.message);
-        setStatus("Save failed.");
+      const response = await fetch('/api/v1/save_annotation', {
+        method: 'POST',
+        headers: { 'X-API-Key': token },
+        body: formData,
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || 'Queue submission failed.');
+      boxes = [];
+      renderList();
+      render();
+      setStatus(`${payload.message} Record: ${payload.record_id}`, 'success');
+    } catch (error) {
+      setStatus(`Submission failed: ${error.message}`, 'error');
+    } finally {
+      submitButton.disabled = !selectedFile || boxes.length === 0;
     }
-});
+  });
 
-document.getElementById('train-btn').addEventListener('click', async () => {
-    setStatus("Firing CUDA Model Overhaul Request...");
-    try {
-        const resp = await fetch("/api/v1/trigger_training", { method: "POST" });
-        const json = await resp.json();
-        if(!resp.ok) throw new Error(json.detail);
-        setStatus(json.message);
-    } catch (err) {
-        alert("Training Thread Isolation Error: " + err.message);
-        setStatus("Training denied.");
-    }
-});
+  renderList();
+})();

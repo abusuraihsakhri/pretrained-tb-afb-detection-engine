@@ -2,8 +2,7 @@
 """
 Master Orchestrator Pipeline
 ============================
-Fully automates the entire sequence from data download, validation, conversion, 
-cache purging, to model training with retry logic, memory protection, and disk sanitation.
+    Automates data ingestion, strict validation, cache cleanup, and development training.
 """
 import os
 import sys
@@ -82,7 +81,7 @@ def auto_pipeline():
     
     env_file = BASE_DIR / ".env"
     if existing_images > 4000:
-        print(f"[*] Detected {existing_images} clinical images already loaded in the engine. Skipping redundant download!")
+        print(f"[*] Detected {existing_images} research images. Skipping redundant download.")
     elif env_file.exists():
         print("[*] Environment variables detected. Running public ingestion sync...")
         run_with_retry(["python", str(SCRIPTS_DIR / "05_ingest_public_data.py")], max_retries=2)
@@ -95,9 +94,9 @@ def auto_pipeline():
 
     clear_cache_and_memory()
 
-    # 4. Unleashing Neural Engine (AMP + Auto-Batch)
-    log_step("INITIATING VRAM-OPTIMIZED NEURAL ENGINE TRAINING")
-    print("[*] Starting YOLO PyTorch Core (Auto-Recovery Enabled).")
+    # 4. Development training. The training entry point blocks on audit failure.
+    log_step("INITIATING AUDITED DEVELOPMENT TRAINING")
+    print("[*] Starting the YOLO development run.")
     
     # We run the train script locally so we don't rely on cmd.exe's batch context
     success = run_with_retry([
@@ -107,7 +106,7 @@ def auto_pipeline():
     ], max_retries=3)
     
     if success:
-        log_step("PIPELINE OMEGA COMPLETE. SUPER-HUMAN MODEL READY.")
+        log_step("DEVELOPMENT TRAINING COMPLETE. LOCKED TEST EVALUATION IS STILL REQUIRED.")
     else:
         print("\n[FATAL] Pipeline failed during PyTorch optimization.")
         sys.exit(1)

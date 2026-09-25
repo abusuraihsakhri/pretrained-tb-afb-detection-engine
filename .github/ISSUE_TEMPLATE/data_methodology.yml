@@ -1,0 +1,33 @@
+name: Data or methodology concern
+description: Report leakage, provenance, annotation, licensing, or evaluation concerns.
+title: "[Data/Method]: "
+labels: [data, methodology]
+body:
+  - type: textarea
+    id: concern
+    attributes:
+      label: Concern
+      description: Identify the affected source, transformation, split, analysis, or claim.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Provide reproducible, non-sensitive evidence and distinguish observation from inference.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Scientific impact
+      description: Explain how this could affect validity, reproducibility, privacy, or licensing.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: This report contains no patient-identifiable or confidential data.
+          required: true

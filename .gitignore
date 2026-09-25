@@ -5,12 +5,16 @@
 01_DATA/raw_tiles/*
 01_DATA/processed_tiles/*
 01_DATA/raw_academic/*
+01_DATA/review_queue/*
+01_DATA/import_staging/*
+01_DATA/curated/*
 !01_DATA/.gitkeep
 
 # Neural Logic Weights (Track production release checkpoint)
 runs/*
 03_MODELS/*
 !03_MODELS/best.pt
+!03_MODELS/best.pt.sha256
 !03_MODELS/.gitkeep
 /best.pt
 
@@ -25,7 +29,16 @@ __pycache__/
 *$py.class
 venv/
 .env
+.env.*
+!.env.example
 .ipynb_checkpoints/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+*.pid
 Tuberculosis-1/
 scratch/
 

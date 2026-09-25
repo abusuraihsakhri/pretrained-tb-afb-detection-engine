@@ -5,16 +5,39 @@ on:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m compileall -q 02_CODE 05_DEPLOYMENT tests
+      - run: pytest -q
+      - name: Validate dataset schema
+        run: python -c "import pathlib,yaml; p=pathlib.Path('02_CODE/data.yaml'); d=yaml.safe_load(p.read_text()); assert d['nc']==1 and d['names']=={0:'AFB'}; assert not pathlib.Path(d['path']).is_absolute()"
+      - name: Validate audit and curation CLIs
+        run: |
+          python 02_CODE/scripts/check_data_integrity.py --help
+          python 02_CODE/scripts/prepare_curated_dataset.py --help
+  api-contract:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install pytest pyyaml
-      - run: python -m compileall -q 02_CODE 05_DEPLOYMENT tests
-      - run: pytest -q
-      - name: Validate dataset schema
-        run: python -c "import yaml; d=yaml.safe_load(open('02_CODE/data.yaml')); assert d['nc']==1 and d['names']=={0:'AFB'}"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-api-test.txt
+      - run: pytest -q tests/test_api_contract.py tests/test_docs.py

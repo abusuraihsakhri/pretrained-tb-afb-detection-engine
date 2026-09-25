@@ -1,22 +1,23 @@
-version: '3.8'
-
 services:
   tb-afb-api:
     build: .
-    restart: always
+    restart: unless-stopped
     ports:
-      - "8001:8001"
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              count: 1
-#              capabilities: [gpu]
+      - "127.0.0.1:8001:8001"
     volumes:
       - ./01_DATA:/app/01_DATA
-      - ./03_MODELS:/app/03_MODELS
+      - ./03_MODELS:/app/03_MODELS:ro
       - ./06_LOGS:/app/06_LOGS
     environment:
-      - PYTHONUNBUFFERED=1
-      - CHOKIDAR_USEPOLLING=true
+      PYTHONUNBUFFERED: "1"
+      TB_AFB_API_TOKEN: "${TB_AFB_API_TOKEN:-}"
+      TB_AFB_MODEL_SHA256: "${TB_AFB_MODEL_SHA256:-}"
+      TB_AFB_ALLOW_REMOTE_TRAINING: "0"
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    shm_size: "1gb"

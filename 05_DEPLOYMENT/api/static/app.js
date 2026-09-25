@@ -1,237 +1,159 @@
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const statusBar = document.getElementById('status-bar');
-const statusText = document.getElementById('status-text');
-const resultsPanel = document.getElementById('results-panel');
-const canvas = document.getElementById('slide-canvas');
-const ctx = canvas.getContext('2d');
+(() => {
+  const fileInput = document.querySelector('#file-input');
+  const fileLabel = document.querySelector('#file-label-text');
+  const tokenInput = document.querySelector('#api-token');
+  const analyzeButton = document.querySelector('#analyze-button');
+  const resetButton = document.querySelector('#reset-button');
+  const downloadButton = document.querySelector('#download-button');
+  const status = document.querySelector('#status');
+  const canvas = document.querySelector('#slide-canvas');
+  const context = canvas.getContext('2d');
+  const emptyState = document.querySelector('#empty-state');
+  const results = document.querySelector('#results');
+  let selectedFile = null;
+  let image = null;
+  let lastResult = null;
 
-const hwStatus = document.getElementById('hw-status');
-const downloadBtn = document.getElementById('download-btn');
-const wsiLink = document.getElementById('wsi-viewer-link');
+  function headers(extra = {}) {
+    const token = tokenInput.value.trim();
+    return token ? { ...extra, 'X-API-Key': token } : extra;
+  }
 
-let uploadedImage = new Image();
-let lastAnalysisData = null;
-let currentFile = null;
+  function setStatus(message, state = '') {
+    status.textContent = message;
+    status.dataset.state = state;
+  }
 
-// Visual feedback for debugging
-function debugLog(msg) {
-    statusText.textContent = msg;
-    statusBar.style.display = 'flex';
-    console.log("[UI Logic]:", msg);
-}
+  function reset() {
+    selectedFile = null;
+    image = null;
+    lastResult = null;
+    fileInput.value = '';
+    fileLabel.textContent = 'Choose a de-identified microscopy image';
+    analyzeButton.disabled = true;
+    results.dataset.visible = 'false';
+    canvas.hidden = true;
+    emptyState.hidden = false;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    setStatus('Choose an image to begin.');
+  }
 
-dropZone.addEventListener('click', () => {
-    debugLog("Click intercepted. Opening hidden file dialog...");
-    fileInput.click();
-});
-
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, preventDefaults, false);
-});
-
-function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-
-['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => dropZone.style.borderColor = 'var(--accent-vibrant)', false);
-});
-
-['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => dropZone.style.borderColor = 'var(--border-color)', false);
-});
-
-dropZone.addEventListener('drop', (e) => {
-    debugLog("Item dropped into zone. Extracting file...");
-    const dt = e.dataTransfer;
-    if (dt && dt.files && dt.files.length > 0) {
-        handleFile(dt.files[0]);
-    } else {
-        alert("The dragged item wasn't recognized as a valid file.");
-    }
-}, false);
-
-fileInput.addEventListener('change', (e) => {
-    debugLog("File input changed. Extracting file payload...");
-    if (e.target.files && e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
-    } else {
-         debugLog("File input was empty or canceled.");
-    }
-});
-
-function handleFile(file) {
-    if (!file) {
-        alert("No file reference detected by the browser.");
-        return;
-    }
-    currentFile = file;
-    
-    debugLog(`File captured recursively: ${file.name} - ${file.size} bytes`);
-    
-    // Medical format allowed validation strictly matched against requested inputs
-    const filename = file.name.toLowerCase();
-    const validExts = [
-        "jpg", "jpeg", "png", 
-        "tiff", "tif", "ptif", "ptiff", "ome.tif", "ome.tiff",
-        "jp2", "j2k", "jpf", "jpx",
-        "svs", "ndpi", "vms", "vmu", "scn", "bif", "mrxs",
-        "dicom", "dcm"
-    ];
-    
-    let isValid = false;
-    for (const ext of validExts) {
-        if (filename.endsWith('.' + ext)) {
-            isValid = true;
-            break;
-        }
-    }
-    
-    if (!isValid) {
-        alert(`Clinical rejection: Unsupported format (${filename}). Provide microscopy compatible extensions.`);
-        return;
-    }
-    
-    dropZone.style.display = 'none';
-    resultsPanel.style.display = 'none';
-    statusText.textContent = `Attempting Frontend Render for ${filename}...`;
-
-    if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png') || filename.endsWith('.webp')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            uploadedImage.onload = () => {
-                canvas.width = uploadedImage.naturalWidth;
-                canvas.height = uploadedImage.naturalHeight;
-                ctx.drawImage(uploadedImage, 0, 0);
-                submitForInference(file);
-            }
-            uploadedImage.onerror = () => {
-                 alert("Local Browser failed to draw image onto canvas correctly.");
-                 submitForInference(file); // try offloading anyway
-            };
-            uploadedImage.src = e.target.result;
-        }
-        reader.onerror = () => alert("FileReader failed to access file payload.");
-        reader.readAsDataURL(file);
-    } else {
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-        canvas.width = 600;
-        canvas.height = 300;
-        ctx.fillStyle = "#f1f5f9";
-        ctx.fillRect(0,0, 600, 300);
-        ctx.font = "18px Outfit";
-        ctx.fillStyle = "#64748b";
-        ctx.textAlign = "center";
-        ctx.fillText(`Raw Complex Format (${filename}) sent to GPU Image Stack...`, 300, 150);
-        submitForInference(file);
-    }
-}
-
-async function submitForInference(file) {
-    statusText.textContent = "Negotiating Secure Fetch -> FastAPI backend...";
-    
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const response = await fetch('/api/v1/analyze', { method: 'POST', body: formData });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || `Server responded with status ${response.status}`);
-        }
-
-        const data = await response.json();
-        statusText.textContent = "Data successfully received! Rendering Dashboard...";
-        
-        lastAnalysisData = {
-            filename: currentFile.name,
-            grade: data.grade,
-            count: data.detections.length,
-            hardware: data.hardware
-        };
-
-        if (currentFile.name.toLowerCase().endsWith('.svs') || currentFile.name.toLowerCase().endsWith('.ndpi') || currentFile.name.toLowerCase().endsWith('.tiff')) {
-             wsiLink.style.display = 'inline';
-             wsiLink.href = `viewer.html?id=${currentFile.name}`;
-        } else {
-             wsiLink.style.display = 'none';
-        }
-
-        renderResults(data);
-    } catch (error) {
-        alert("API Processing Error: " + error.message);
-        resetUI();
-    }
-}
-
-document.getElementById('download-btn').addEventListener('click', async () => {
-    if (!lastAnalysisData) return;
-    
-    statusText.textContent = "Generating Secure Clinical PDF...";
-    statusBar.style.display = 'flex';
-    
-    const pathologistName = document.getElementById('pathologist-name').value || "Not Specified";
-    
-    try {
-        const resp = await fetch("/api/v1/export_report", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...lastAnalysisData, pathologist_name: pathologistName })
-        });
-        
-        if (!resp.ok) throw new Error("Report generation failed.");
-        
-        const blob = await resp.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `TB_Report_${lastAnalysisData.filename.split('.')[0]}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        statusBar.style.display = 'none';
-    } catch (err) {
-        alert(err.message);
-        statusBar.style.display = 'none';
-    }
-});
-
-function renderResults(data) {
-    statusBar.style.display = 'none';
-    resultsPanel.style.display = 'block';
-    
-    document.getElementById('who-grade').textContent = String(data.grade).replace(/[<>]/g, "");
-    hwStatus.firstElementChild.textContent = String(data.hardware).replace(/[<>]/g, "");
-    
-    let defCount = 0;
-    let posCount = 0;
-    
-    data.detections.forEach(det => {
-        const [cx, cy, w, h] = det.bbox;
-        const x = cx - w/2;
-        const y = cy - h/2;
-        
-        ctx.beginPath();
-        ctx.lineWidth = 3;
-        
-        if (det.class_id === 0) {
-            ctx.strokeStyle = '#dc2626'; // Danger/Definite Red
-            defCount++;
-        } else {
-            ctx.strokeStyle = '#f59e0b'; // Possible Orange
-            posCount++;
-        }
-        
-        ctx.rect(x, y, w, h);
-        ctx.stroke();
+  function drawImageAndBoxes(detections = []) {
+    if (!image) return;
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    context.drawImage(image, 0, 0);
+    context.lineWidth = Math.max(2, image.naturalWidth / 700);
+    context.strokeStyle = '#b42318';
+    detections.forEach((detection) => {
+      const [cx, cy, width, height] = detection.bbox;
+      context.strokeRect(cx - width / 2, cy - height / 2, width, height);
     });
+    canvas.hidden = false;
+    emptyState.hidden = true;
+  }
 
-    document.getElementById('count-definite').textContent = defCount;
-    document.getElementById('count-possible').textContent = posCount;
-    document.getElementById('conf-range').textContent = (defCount + posCount) > 0 ? "75% - 94%" : "--";
-}
+  async function loadPreview(file) {
+    const url = URL.createObjectURL(file);
+    const preview = new Image();
+    try {
+      await new Promise((resolve, reject) => {
+        preview.onload = resolve;
+        preview.onerror = reject;
+        preview.src = url;
+      });
+      image = preview;
+      drawImageAndBoxes();
+    } catch {
+      image = null;
+      canvas.hidden = true;
+      emptyState.hidden = false;
+      emptyState.textContent = 'Preview unavailable for this raster format. The server will still validate it.';
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 
-function resetUI() {
-    dropZone.style.display = 'block';
-    statusBar.style.display = 'none';
-}
+  fileInput.addEventListener('change', async () => {
+    selectedFile = fileInput.files?.[0] || null;
+    results.dataset.visible = 'false';
+    lastResult = null;
+    if (!selectedFile) {
+      reset();
+      return;
+    }
+    fileLabel.textContent = selectedFile.name;
+    analyzeButton.disabled = false;
+    setStatus('Image selected. Review the filename, then run inference.');
+    await loadPreview(selectedFile);
+  });
+
+  analyzeButton.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    analyzeButton.disabled = true;
+    setStatus('Running tiled research inference…');
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    try {
+      const response = await fetch('/api/v1/analyze', {
+        method: 'POST',
+        headers: headers(),
+        body: formData,
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || `Request failed (${response.status})`);
+      lastResult = payload;
+      drawImageAndBoxes(payload.detections);
+      document.querySelector('#candidate-count').textContent = payload.detections.length.toLocaleString();
+      document.querySelector('#hardware').textContent = payload.hardware;
+      document.querySelector('#result-message').textContent = payload.message;
+      const confidences = payload.detections.map((item) => Number(item.confidence));
+      document.querySelector('#confidence-range').textContent = confidences.length
+        ? `${Math.min(...confidences).toFixed(2)}–${Math.max(...confidences).toFixed(2)}`
+        : '—';
+      results.dataset.visible = 'true';
+      setStatus('Research inference completed.', 'success');
+    } catch (error) {
+      setStatus(`Inference failed: ${error.message}`, 'error');
+    } finally {
+      analyzeButton.disabled = false;
+    }
+  });
+
+  downloadButton.addEventListener('click', async () => {
+    if (!lastResult || !selectedFile) return;
+    setStatus('Preparing research PDF…');
+    try {
+      const response = await fetch('/api/v1/export_report', {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          grade: lastResult.grade,
+          hardware: lastResult.hardware,
+          reviewer_name: document.querySelector('#reviewer-name').value || 'Not specified',
+          count: lastResult.detections.length,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.detail || 'Report generation failed.');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'TB_AFB_Research_Report.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus('Research PDF downloaded.', 'success');
+    } catch (error) {
+      setStatus(`PDF export failed: ${error.message}`, 'error');
+    }
+  });
+
+  resetButton.addEventListener('click', reset);
+  reset();
+})();

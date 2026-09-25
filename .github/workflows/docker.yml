@@ -1,0 +1,28 @@
+name: Docker build
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - requirements.txt
+      - 02_CODE/**
+      - 05_DEPLOYMENT/**
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - requirements.txt
+      - 02_CODE/**
+      - 05_DEPLOYMENT/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag tb-afb-research:ci .

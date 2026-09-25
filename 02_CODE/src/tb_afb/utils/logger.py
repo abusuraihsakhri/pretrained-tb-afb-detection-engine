@@ -4,9 +4,11 @@ import datetime
 import json
 
 class AuditLogger:
-    """
-    Medical device audit logging (21 CFR Part 11 compliance).
-    Forces robust log sanitization and prevents Log Forging/Injection attacks.
+    """Local, append-only research activity log.
+
+    This utility is not an electronic-record compliance control. It does not
+    provide signatures, access control, tamper evidence, retention policy, or
+    the other controls required for regulated audit trails.
     """
     def __init__(self, log_dir: Path, user_id: str):
         # 🛡️ SECURITY CONTROL: Absolute localized path enforcement
@@ -33,7 +35,13 @@ class AuditLogger:
         self._write_log({"event": "training_start", "config": config_hash, "data": data_version, "commit": git_commit})
 
     def log_inference(self, slide_id: str, model_version: str, result: Dict, processing_time: float) -> None:
-        self._write_log({"event": "inference", "slide_id": slide_id, "model": model_version, "time": processing_time})
+        self._write_log({
+            "event": "inference",
+            "slide_id": slide_id,
+            "model": model_version,
+            "time": processing_time,
+            "detection_count": result.get("total_detections"),
+        })
 
     def log_data_access(self, data_path: Path, action: str) -> None:
         self._write_log({"event": "data_access", "path": str(Path(data_path).resolve()), "action": action})

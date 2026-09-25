@@ -1,44 +1,54 @@
-' ==========================================================================
-' TB Pathology Intelligence - Silent Kiosk Launcher (FIXED)
-' Starts the FastAPI backend silently and opens the UI in kiosk mode.
-' ==========================================================================
+' TB-AFB Research UI launcher.
+' Starts the local-only API, records its exact PID, waits for /healthz, and opens the UI.
 
-Dim oShell, oFSO, sRoot, sPython, sBrowserPath
+Option Explicit
+
+Dim oShell, oFSO, oWMI, oStartup, oProcess
+Dim sRoot, sPython, sCommand, sLogDir, sPidFile
+Dim iPid, iResult, iRetry, bReady, oHTTP, oFile
 
 Set oShell = CreateObject("WScript.Shell")
-Set oFSO   = CreateObject("Scripting.FileSystemObject")
-
-' Resolve project root (same folder as this script)
+Set oFSO = CreateObject("Scripting.FileSystemObject")
 sRoot = oFSO.GetParentFolderName(WScript.ScriptFullName)
-
-' Set working directory to project root FIRST
 oShell.CurrentDirectory = sRoot
 
-' --- Resolve correct Python (venv first, then system python.exe) ---
-' NOTE: Using python.exe NOT pythonw.exe — pythonw breaks uvicorn module loading
-Dim sVenvPython
-sVenvPython = sRoot & "\venv\Scripts\python.exe"
-If oFSO.FileExists(sVenvPython) Then
-    sPython = """" & sVenvPython & """"
+If oFSO.FileExists(sRoot & "\.venv\Scripts\python.exe") Then
+    sPython = sRoot & "\.venv\Scripts\python.exe"
+ElseIf oFSO.FileExists(sRoot & "\venv\Scripts\python.exe") Then
+    sPython = sRoot & "\venv\Scripts\python.exe"
 Else
     sPython = "python"
 End If
 
-' --- Boot the FastAPI server via hidden cmd window ---
-' cmd /c keeps the process alive; window style 0 = fully hidden
-Dim sCmd
-sCmd = "cmd /c " & sPython & " -m uvicorn 05_DEPLOYMENT.api.server:app --host 127.0.0.1 --port 8001"
-oShell.Run sCmd, 0, False
+sLogDir = sRoot & "\06_LOGS"
+If Not oFSO.FolderExists(sLogDir) Then oFSO.CreateFolder(sLogDir)
+sPidFile = sLogDir & "\research_api.pid"
+If oFSO.FileExists(sPidFile) Then
+    MsgBox "A recorded research API process already exists. Use the Stop shortcut first.", vbExclamation, "Already running"
+    WScript.Quit 1
+End If
 
-' --- Wait for server to respond (max 40 seconds, 1-second polling) ---
-Dim oHTTP, iRetry, bReady
+sCommand = """" & sPython & """ -m uvicorn 05_DEPLOYMENT.api.server:app --host 127.0.0.1 --port 8001 --no-server-header"
+Set oWMI = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
+Set oStartup = oWMI.Get("Win32_ProcessStartup").SpawnInstance_
+oStartup.ShowWindow = 0
+Set oProcess = oWMI.Get("Win32_Process")
+iResult = oProcess.Create(sCommand, sRoot, oStartup, iPid)
+If iResult <> 0 Then
+    MsgBox "The local research API could not be started. WMI result: " & iResult, vbCritical, "Launch failed"
+    WScript.Quit 1
+End If
+
+Set oFile = oFSO.CreateTextFile(sPidFile, True)
+oFile.WriteLine CStr(iPid)
+oFile.Close
+
 Set oHTTP = CreateObject("MSXML2.XMLHTTP")
 bReady = False
-
-For iRetry = 1 To 40
+For iRetry = 1 To 60
     WScript.Sleep 1000
     On Error Resume Next
-    oHTTP.Open "GET", "http://127.0.0.1:8001/api/v1/stats", False
+    oHTTP.Open "GET", "http://127.0.0.1:8001/healthz", False
     oHTTP.Send
     If Err.Number = 0 And oHTTP.Status = 200 Then
         bReady = True
@@ -49,44 +59,19 @@ For iRetry = 1 To 40
 Next
 
 If Not bReady Then
-    MsgBox "TB Pathology Intelligence failed to start after 40 seconds." & vbCrLf & vbCrLf & _
-           "Quick Fix: Run 'Start_Detection_Engine.bat' to see the exact error." & vbCrLf & _
-           "Ensure 'pip install -r requirements.txt' was completed.", _
-           vbCritical, "Launch Failed"
+    On Error Resume Next
+    oWMI.Get("Win32_Process.Handle='" & CStr(iPid) & "'").Terminate
+    oFSO.DeleteFile sPidFile, True
+    On Error GoTo 0
+    MsgBox "The TB-AFB research API did not become ready after 60 seconds. Run Start_Detection_Engine.bat to inspect the error.", vbCritical, "Launch failed"
     WScript.Quit 1
 End If
 
-' --- Find browser and open in kiosk mode ---
-Dim sBrowser
-sBrowser = ""
+oShell.Run "http://127.0.0.1:8001/ui/", 1, False
 
-' Try Microsoft Edge first (always present on Windows 10/11)
-Dim sEdge
-sEdge = oShell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & _
-        "\Microsoft\Edge\Application\msedge.exe"
-If oFSO.FileExists(sEdge) Then
-    sBrowser = """" & sEdge & """"
-End If
-
-' Fallback: try Chrome
-If sBrowser = "" Then
-    Dim sChrome
-    sChrome = oShell.ExpandEnvironmentStrings("%ProgramFiles%") & _
-              "\Google\Chrome\Application\chrome.exe"
-    If oFSO.FileExists(sChrome) Then
-        sBrowser = """" & sChrome & """"
-    End If
-End If
-
-If sBrowser <> "" Then
-    ' Kiosk mode: full screen, no address bar, no tabs
-    oShell.Run sBrowser & " --kiosk --app=http://127.0.0.1:8001/ui/ " & _
-               "--new-window --disable-extensions --no-default-browser-check", 1, False
-Else
-    ' Last resort: just open default browser normally
-    oShell.Run "rundll32 url.dll,FileProtocolHandler http://127.0.0.1:8001/ui/", 1, False
-End If
-
+Set oHTTP = Nothing
+Set oProcess = Nothing
+Set oStartup = Nothing
+Set oWMI = Nothing
+Set oFSO = Nothing
 Set oShell = Nothing
-Set oFSO   = Nothing
-Set oHTTP  = Nothing

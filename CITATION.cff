@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use the software framework, cite this repository and state that the v1.0.0 checkpoint is on validation hold."
+title: "TB-AFB Detection Research Pipeline"
+type: software
+authors:
+  - family-names: "Sakhri"
+    given-names: "Abu Suraih"
+repository-code: "https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model"
+url: "https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/"
+license: Apache-2.0
+version: "1.0.0"
+keywords:
+  - acid-fast bacilli
+  - microscopy
+  - object detection
+  - digital pathology
+  - research software

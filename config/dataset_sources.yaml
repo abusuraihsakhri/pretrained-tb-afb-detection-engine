@@ -1,0 +1,65 @@
+schema_version: 1
+status: provenance_review_required
+sources:
+  tuberculosis-p8whq:
+    provider: Roboflow Universe
+    workspace: swu-5alfk
+    version: 1
+    upstream_url: https://universe.roboflow.com/swu-5alfk/tuberculosis-p8whq/dataset/1
+    license_id: null
+    eligibility: pending_class_and_license_review
+  tuberculosis-czyfb:
+    provider: Roboflow Universe
+    workspace: swu-5alfk
+    version: 3
+    upstream_url: https://universe.roboflow.com/swu-5alfk/tuberculosis-czyfb/dataset/3
+    license_id: null
+    eligibility: pending_class_and_license_review
+  afb-zpazz:
+    provider: Roboflow Universe
+    workspace: huzaifa-athar
+    version: 1
+    upstream_url: https://universe.roboflow.com/huzaifa-athar/afb-zpazz/dataset/1
+    license_id: null
+    eligibility: pending_license_and_grouping_review
+  technique-for-detecting-acid-fast-bacilli:
+    provider: Roboflow Universe
+    workspace: naresuan-university-1yqlq
+    version: 15
+    upstream_url: https://universe.roboflow.com/naresuan-university-1yqlq/technique-for-detecting-acid-fast-bacilli/dataset/15
+    license_id: null
+    eligibility: pending_license_and_grouping_review
+  tuberculosis-2:
+    provider: Roboflow Universe
+    workspace: detection-tb
+    version: 5
+    upstream_url: https://universe.roboflow.com/detection-tb/tuberculosis-2/dataset/5
+    license_id: null
+    eligibility: pending_license_and_grouping_review
+  afb-detect:
+    provider: Roboflow Universe
+    workspace: afb-dataset
+    version: 4
+    upstream_url: https://universe.roboflow.com/afb-dataset/afb-detect/dataset/4
+    license_id: null
+    eligibility: quarantined
+    reason: Predominantly image-spanning boxes and extensive boundary violations.
+  afb-test-y7:
+    provider: Roboflow Universe
+    workspace: suci-aulia
+    version: 10
+    upstream_url: https://universe.roboflow.com/suci-aulia/afb-test-y7/dataset/10
+    license_id: null
+    eligibility: pending_license_and_grouping_review
+  acad_mendeley:
+    provider: local_academic_import
+    version: unknown
+    upstream_url: null
+    license_id: null
+    eligibility: pending_source_license_and_grouping_review
+  academic_negative_controls:
+    provider: local_academic_import
+    version: unknown
+    upstream_url: null
+    license_id: null
+    eligibility: pending_source_license_and_grouping_review

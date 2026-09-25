@@ -23,13 +23,40 @@ def main():
     parser.add_argument("--model", required=True, help="Trained AFB best.pt checkpoint")
     parser.add_argument("--wsi", required=True, help="Slide or microscopy image")
     parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument(
+        "--microns-per-pixel",
+        type=float,
+        default=None,
+        help="Level-0 calibration for raster images when known.",
+    )
+    parser.add_argument(
+        "--morphology-filter",
+        action="store_true",
+        help="Apply exploratory calibrated morphology filtering; requires MPP metadata.",
+    )
     parser.add_argument("--fields-examined", type=int, default=None,
                         help="Optional observed field count; required for smear grading")
+    parser.add_argument(
+        "--magnification",
+        type=int,
+        default=None,
+        help="Microscope magnification used for the explicitly sampled fields.",
+    )
+    parser.add_argument(
+        "--confirm-grading-protocol",
+        action="store_true",
+        help="Confirm that fields were acquired using the documented smear-grading protocol.",
+    )
     args = parser.parse_args()
 
     detector = YOLOAFBDetector()
     detector.load_checkpoint(resolve_existing_path(args.model))
-    engine = SlidingWindowInference(detector, confidence_threshold=args.conf)
+    engine = SlidingWindowInference(
+        detector,
+        confidence_threshold=args.conf,
+        enable_morphology_filter=args.morphology_filter,
+        microns_per_pixel=args.microns_per_pixel,
+    )
     result = engine.process_slide(resolve_existing_path(args.wsi))
 
     print(f"Detections: {result['total_detections']}")
@@ -37,8 +64,15 @@ def main():
     print(f"Processing time: {result['processing_time']:.2f} s")
 
     if args.fields_examined is not None:
-        report = WHOGrader().calculate_grade(result["total_detections"], args.fields_examined)
-        print(f"Research smear grade: {report['report_string']}")
+        if args.magnification is None:
+            raise SystemExit("--magnification is required when --fields-examined is used.")
+        report = WHOGrader().calculate_grade(
+            result["total_detections"],
+            args.fields_examined,
+            magnification=args.magnification,
+            protocol_confirmed=args.confirm_grading_protocol,
+        )
+        print(report["report_string"])
     else:
         print("Smear grade: not calculated (provide --fields-examined).")
 

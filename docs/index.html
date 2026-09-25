@@ -1,515 +1,188 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Deep learning Acid-Fast Bacilli (AFB) detection engine trained on 14,951 multi-center microscopy fields (59,518 bacilli). Features PyTorch YOLOv8 detection, sliding-window WSI inference, and IUATLD/WHO smear grading.">
-  <title>TB-AFB Clinical & Research Detection Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Status | TB-AFB Detection</title>
+  <meta name="description" content="Audit status, limitations, and reproducible workflow for an experimental acid-fast bacilli microscopy detection pipeline.">
+  <meta name="theme-color" content="#f4f7f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111915" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="canonical" href="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="TB-AFB Detection Research Pipeline">
+  <meta property="og:title" content="TB-AFB Detection Research Status">
+  <meta property="og:description" content="Transparent audit findings, limitations, and reproducible next steps for an experimental AFB microscopy detector.">
+  <meta property="og:url" content="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/">
+  <meta property="og:image" content="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/og-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TB-AFB Detection Research Status">
+  <meta name="twitter:description" content="Audit findings, limitations, and reproducible next steps for an experimental AFB microscopy detector.">
+  <meta name="twitter:image" content="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/og-card.png">
   <link rel="stylesheet" href="style.css">
-  <style>
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 24px 0;
-      font-size: 14px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    .data-table th, .data-table td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid var(--line);
-    }
-    .data-table th {
-      background: var(--soft);
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 12px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .data-table tr:last-child td {
-      border-bottom: none;
-      font-weight: 700;
-    }
-    .tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      background: var(--soft);
-      color: var(--accent);
-    }
-    .metric-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 16px;
-      margin: 28px 0;
-    }
-    .metric-box {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-    }
-    .metric-box .metric-value {
-      font-size: 32px;
-      font-weight: 800;
-      color: var(--accent);
-      line-height: 1.1;
-      margin-bottom: 6px;
-    }
-    .metric-box .metric-label {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-    }
-    .metric-box .metric-detail {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-    .gallery-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-      margin: 32px 0;
-    }
-    .gallery-card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.04);
-      display: flex;
-      flex-direction: column;
-    }
-    .gallery-card img {
-      width: 100%;
-      height: auto;
-      display: block;
-      background: #fdfdfd;
-      border-bottom: 1px solid var(--line);
-    }
-    .gallery-card-body {
-      padding: 16px 20px;
-    }
-    .gallery-card-body h4 {
-      margin: 0 0 6px 0;
-      font-size: 15px;
-      font-weight: 700;
-    }
-    .gallery-card-body p {
-      margin: 0;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .full-width-card {
-      grid-column: span 2;
-    }
-    @media(max-width: 768px) {
-      .gallery-grid {
-        grid-template-columns: 1fr;
-      }
-      .full-width-card {
-        grid-column: span 1;
-      }
-    }
-  </style>
+  <script src="script.js" defer></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "TB-AFB Detection Research Pipeline",
+    "description": "Experimental research software for auditing and developing acid-fast bacilli microscopy object detection.",
+    "codeRepository": "https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "programmingLanguage": "Python",
+    "isAccessibleForFree": true
+  }
+  </script>
 </head>
 <body>
-<header class="nav">
-  <a class="brand" href="./">TB-AFB <span>Intelligence Engine</span></a>
-  <nav aria-label="Primary">
-    <a href="#results">Results & Validation</a>
-    <a href="#use-cases">Use Cases</a>
-    <a href="#datalake">Datalake</a>
-    <a href="#grading">WHO Protocol</a>
-    <a href="#architecture">Architecture</a>
-    <a href="#features">Features</a>
-    <a class="repo" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">GitHub</a>
-    <button id="theme" type="button" aria-label="Toggle color theme">◐</button>
-  </nav>
-</header>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
-<main>
-<section class="hero">
-  <div>
-    <p class="eyebrow">DIGITAL PATHOLOGY · ZN MICROSCOPY · DEEP LEARNING</p>
-    <h1>Deep learning system for <em>Acid-Fast Bacilli detection.</em></h1>
-    <p class="lede">A clinical-grade, GPU-accelerated PyTorch system trained across 14,951 multi-center microscopy fields (59,518 bacilli) for high-throughput detection of <em>Mycobacterium tuberculosis</em> in Ziehl-Neelsen stained sputum smears and pyramidal Whole Slide Images (WSIs).</p>
-    <div class="actions">
-      <a class="primary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine">View Repository on GitHub</a>
-      <a href="#results">Explore Validation Results ↓</a>
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="brand" href="#top" aria-label="TB-AFB research status home">
+        <span class="brand-mark" aria-hidden="true">AFB</span>
+        <span>TB-AFB Research</span>
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-navigation">
+        Menu
+      </button>
+      <nav id="primary-navigation" aria-label="Primary navigation">
+        <a href="#status">Status</a>
+        <a href="#audit">Audit</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#limitations">Limitations</a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">GitHub</a>
+      </nav>
+      <button class="theme-button" type="button" aria-pressed="false" aria-label="Use dark theme">
+        <span aria-hidden="true">◐</span><span class="theme-label">Theme</span>
+      </button>
     </div>
-  </div>
+  </header>
 
-  <aside class="status-card" aria-label="Engine Capabilities">
-    <div class="status-head"><span class="dot"></span> Fully Trained & Verified System</div>
-    <dl>
-      <div><dt>Datalake Scale</dt><dd>14,951 Tiles</dd></div>
-      <div><dt>Annotated Bacilli</dt><dd>59,518 AFB Rods</dd></div>
-      <div><dt>Negative Controls</dt><dd>7,242 HPF Fields</dd></div>
-      <div><dt>mAP@50 Accuracy</dt><dd>64.1%</dd></div>
-      <div><dt>Precision ($P$)</dt><dd>71.9%</dd></div>
-      <div><dt>Inference Latency</dt><dd>2.5 ms / tile</dd></div>
-      <div><dt>Clinical Validation</dt><dd>Multi-Center Audited</dd></div>
-      <div><dt>Diagnostic Scale</dt><dd>IUATLD / WHO Smear</dd></div>
-    </dl>
-    <p>Trained across 150 full epochs with multi-center cross-validation across 9 clinical cohorts.</p>
-  </aside>
-</section>
-
-<!-- SECTION: RESULTS & VALIDATION -->
-<section id="results" class="section">
-  <p class="eyebrow">EXPERIMENTAL RESULTS & EMPIRICAL VALIDATION</p>
-  <h2>150-Epoch Convergence & Multi-Center Evaluation</h2>
-  <p class="lede">The detector was trained on 13,136 multi-center tiles and validated against 952 unseen clinical high-power fields (6,280 ground-truth AFB instances) across 150 full epochs.</p>
-
-  <div class="metric-grid">
-    <div class="metric-box">
-      <div class="metric-value">64.06%</div>
-      <div class="metric-label">mAP@50</div>
-      <div class="metric-detail">High sensitivity on tiny bacilli</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-value">71.86%</div>
-      <div class="metric-label">Precision ($P$)</div>
-      <div class="metric-detail">Suppresses stain debris false-positives</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-value">56.20%</div>
-      <div class="metric-label">Recall ($R$)</div>
-      <div class="metric-detail">Robust capture across 9 centers</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-value">31.19%</div>
-      <div class="metric-label">mAP@50-95</div>
-      <div class="metric-detail">Precise bounding box regression</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-value">2.5 ms</div>
-      <div class="metric-label">Inference / Tile</div>
-      <div class="metric-detail">>400 FPS real-time throughput</div>
-    </div>
-    <div class="metric-box">
-      <div class="metric-value">6,280</div>
-      <div class="metric-label">Val Instances</div>
-      <div class="metric-detail">Audited on 952 unseen clinical HPFs</div>
-    </div>
-  </div>
-
-  <div class="gallery-grid">
-    <div class="gallery-card full-width-card">
-      <img src="assets/results.png" alt="150-Epoch Training and Validation Loss Curves" loading="lazy">
-      <div class="gallery-card-body">
-        <h4>Training & Validation Convergence (150 Epochs / 13.92 Hours)</h4>
-        <p>Evolution of Box Loss, Class Loss, DFL Loss, Precision, Recall, and Mean Average Precision across all 150 epochs. Note smooth convergence with steady metric gain and zero overfitting.</p>
+  <main id="main-content">
+    <section class="hero" id="top" aria-labelledby="page-title">
+      <div class="eyebrow">Open research software · validation hold</div>
+      <h1 id="page-title">Evidence before deployment</h1>
+      <p class="lede">An experimental pipeline for candidate acid-fast bacilli detection in Ziehl–Neelsen microscopy, now undergoing dataset correction and independent re-evaluation.</p>
+      <div class="notice" role="status">
+        <strong>Do not use the v1.0.0 checkpoint for diagnosis or patient care.</strong>
+        A post-release audit found exact train–validation–test leakage and a quarantined annotation source. A corrected model has not yet been trained.
       </div>
-    </div>
-
-    <div class="gallery-card">
-      <img src="assets/confusion_matrix_normalized.png" alt="Normalized Confusion Matrix" loading="lazy">
-      <div class="gallery-card-body">
-        <h4>Normalized Confusion Matrix</h4>
-        <p>Evaluates true-positive AFB detection rate versus background glass/mucin false alarms on the clinical validation split.</p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/MODEL_CARD.md">Read the model card</a>
+        <a class="button secondary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">Inspect the repository</a>
       </div>
-    </div>
+    </section>
 
-    <div class="gallery-card">
-      <img src="assets/BoxPR_curve.png" alt="Precision-Recall Curve" loading="lazy">
-      <div class="gallery-card-body">
-        <h4>Precision-Recall (PR) Curve</h4>
-        <p>Clinical trade-off curve demonstrating 0.641 area under curve (AUC) across all recall thresholds on 6,280 AFB instances.</p>
+    <section id="status" aria-labelledby="status-title">
+      <div class="section-heading">
+        <p class="kicker">Current status</p>
+        <h2 id="status-title">What is usable today</h2>
+        <p>The software is useful for auditing, development, and non-clinical experimentation. The historical checkpoint is preserved for provenance, not as validated performance evidence.</p>
       </div>
-    </div>
+      <dl class="status-grid">
+        <div><dt>Repository</dt><dd>Active research code</dd></div>
+        <div><dt>Historical checkpoint</dt><dd>Validation hold</dd></div>
+        <div><dt>Dataset audit</dt><dd>Failing by design</dd></div>
+        <div><dt>Clinical use</dt><dd>Not supported</dd></div>
+      </dl>
+    </section>
 
-    <div class="gallery-card">
-      <img src="assets/BoxF1_curve.png" alt="F1-Confidence Curve" loading="lazy">
-      <div class="gallery-card-body">
-        <h4>F1-Confidence Calibration Curve</h4>
-        <p>F1 score optimization curve determining the ideal operational confidence threshold for clinical screening.</p>
+    <section id="audit" aria-labelledby="audit-title">
+      <div class="section-heading">
+        <p class="kicker">Reproducible audit</p>
+        <h2 id="audit-title">The blockers are visible</h2>
+        <p>The new validator examines every split and fails before training when leakage, invalid annotations, or quarantined sources remain.</p>
       </div>
-    </div>
-
-    <div class="gallery-card">
-      <img src="assets/val_batch0_pred.jpg" alt="Validation Batch Predictions" loading="lazy">
-      <div class="gallery-card-body">
-        <h4>Sample Model Predictions on Clinical Fields</h4>
-        <p>Visual verification of model bounding boxes (cyan) on ZN microscopy smear fields containing isolated, clustered, and overlapping AFB bacilli.</p>
+      <div class="table-scroll" tabindex="0" aria-label="Scrollable data-audit findings table">
+        <table>
+          <caption>Findings in the historical 14,951-image aggregate</caption>
+          <thead>
+            <tr><th scope="col">Finding</th><th scope="col">Observed</th><th scope="col">Decision</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Label boxes, all splits</th><td class="number">70,723</td><td>Reconcile with source manifests</td></tr>
+            <tr><th scope="row">Empty label files</th><td class="number">7,760</td><td>Verify true-negative status</td></tr>
+            <tr><th scope="row">Exact duplicate groups crossing splits</th><td class="number critical">131</td><td>Block training and evaluation</td></tr>
+            <tr><th scope="row">Annotation rule violations</th><td class="number critical">13,710</td><td>Correct or exclude</td></tr>
+            <tr><th scope="row"><code>afb-detect</code> large-box flags</th><td class="number critical">25,690 / 26,326</td><td>Source quarantined</td></tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-  </div>
-</section>
+      <p class="method-note">Counts describe the local historical aggregate. Rule violations can include multiple failures for one box. See the dataset card and machine-readable audit for definitions.</p>
+    </section>
 
-<!-- SECTION: CLINICAL USE CASES -->
-<section id="use-cases" class="section">
-  <p class="eyebrow">TRANSLATIONAL PATHOLOGY</p>
-  <h2>Clinical use cases & diagnostic deployment scenarios.</h2>
-  <p class="lede">Engineered to integrate seamlessly into routine mycobacteriology laboratories, high-volume screening hubs, and decentralized clinics:</p>
+    <section id="evidence" aria-labelledby="evidence-title">
+      <div class="section-heading">
+        <p class="kicker">Historical evidence</p>
+        <h2 id="evidence-title">Development metrics are not test performance</h2>
+        <p>The earlier validation run produced the values below. Because the split is contaminated and the suspect source contributed many annotations, the values cannot support generalization or clinical claims.</p>
+      </div>
+      <div class="metrics" aria-label="Historical development metrics">
+        <div><span>Precision</span><strong>0.7186</strong></div>
+        <div><span>Recall</span><strong>0.5620</strong></div>
+        <div><span>mAP@50</span><strong>0.6406</strong></div>
+        <div><span>mAP@50–95</span><strong>0.3119</strong></div>
+      </div>
+      <figure>
+        <img src="assets/results.png" alt="Historical training and validation curves across 150 epochs">
+        <figcaption>Historical development curves, retained for provenance. They do not demonstrate “zero overfitting” or independent validation.</figcaption>
+      </figure>
+    </section>
 
-  <div class="grid">
-    <article>
-      <b>USE CASE 01</b>
-      <h3>Automated Routine Smear Triage</h3>
-      <p>Rapidly triages high-volume sputum smear slides in high-burden screening centers. Automatically filters out high-confidence negative fields to relieve laboratory backlogs and focus pathologist attention on scanty and low-density positives.</p>
-    </article>
-    <article>
-      <b>USE CASE 02</b>
-      <h3>Whole Slide Image (WSI) Mapping</h3>
-      <p>Integrates with digital slide scanners (Aperio, Hamamatsu, 3DHISTECH) via OpenSlide. Performs 640×640 boundary-aware sliding-window scanning with adaptive overlap to map AFB clusters across entire gigapixel glass surfaces.</p>
-    </article>
-    <article>
-      <b>USE CASE 03</b>
-      <h3>Decentralized & Edge Telepathology</h3>
-      <p>Lightweight 3.01M parameter architecture delivers ultra-fast 2.5 ms inference per tile. Enables real-time on-device screening on portable laboratory microscopes and mobile diagnostic units without requiring cloud connectivity.</p>
-    </article>
-    <article>
-      <b>USE CASE 04</b>
-      <h3>Standardized IUATLD / WHO Smear Grading</h3>
-      <p>Translates microscopic rod counts into standardized international IUATLD/WHO semi-quantitative smear grades (Negative, Scanty, 1+, 2+, 3+), eliminating inter-observer variability and standardizing clinical reporting.</p>
-    </article>
-  </div>
-</section>
+    <section id="workflow" aria-labelledby="workflow-title">
+      <div class="section-heading">
+        <p class="kicker">Correction pathway</p>
+        <h2 id="workflow-title">From raw provenance to a locked test</h2>
+      </div>
+      <ol class="workflow-list">
+        <li><strong>Verify sources.</strong><span>Record pinned version, license, classes, annotation type, acquisition metadata, and exclusions.</span></li>
+        <li><strong>Correct annotations.</strong><span>Exclude quarantined records and reject malformed or out-of-bounds boxes without silent repair.</span></li>
+        <li><strong>Group before splitting.</strong><span>Keep each patient, specimen, smear/slide, original field, and duplicate cluster in one split.</span></li>
+        <li><strong>Develop without the test set.</strong><span>Use training and development validation for model and threshold selection.</span></li>
+        <li><strong>Evaluate once.</strong><span>Run the locked test with frozen hashes, confidence intervals, source-level results, and error analysis.</span></li>
+      </ol>
+      <pre><code>python 02_CODE/scripts/check_data_integrity.py
+python 02_CODE/scripts/02_train.py --data data.yaml --epochs 150
+python 02_CODE/scripts/03_evaluate_locked.py --model 03_MODELS/best.pt --data 02_CODE/data.yaml --split test --acknowledge-test-lock</code></pre>
+    </section>
 
-<!-- SECTION: DATALAKE -->
-<section id="datalake" class="section">
-  <p class="eyebrow">MULTI-CENTER CLINICAL DATALAKE</p>
-  <h2>Aggregated across 9 distinct digital microscopy cohorts.</h2>
-  <p class="lede">To prevent staining, camera, and laboratory bias, the training pipeline standardizes 14,951 high-power field (HPF) tiles with normalized single-class bounding boxes:</p>
+    <section id="limitations" aria-labelledby="limitations-title">
+      <div class="section-heading">
+        <p class="kicker">Limits and scope</p>
+        <h2 id="limitations-title">What this system does not establish</h2>
+      </div>
+      <ul class="limitations">
+        <li>AFB appearance does not identify <em>Mycobacterium tuberculosis</em> or confirm tuberculosis.</li>
+        <li>No prospective, external-site, reader, workflow, calibration, or clinical-impact validation has been completed.</li>
+        <li>Performance across laboratories, scanners, stain protocols, populations, and low-load specimens remains unknown.</li>
+        <li>Smear grading requires a validated acquisition and field-sampling protocol; detections alone are insufficient.</li>
+        <li>The local research log is not a regulated electronic-record audit trail.</li>
+      </ul>
+    </section>
 
-  <div style="overflow-x:auto;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Clinical Cohort / Source</th>
-          <th>Train Images</th>
-          <th>Val Images</th>
-          <th>Test Images</th>
-          <th>Total Images</th>
-          <th>Annotated AFB Instances</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1</td>
-          <td>Srinakharinwirot University Cohort 1</td>
-          <td>3,468</td>
-          <td>144</td>
-          <td>69</td>
-          <td>3,681</td>
-          <td>10,774</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>2</td>
-          <td>Srinakharinwirot University Cohort 2</td>
-          <td>2,660</td>
-          <td>0</td>
-          <td>127</td>
-          <td>2,787</td>
-          <td>9,969</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>3</td>
-          <td>H. Athar Clinical Smears</td>
-          <td>618</td>
-          <td>171</td>
-          <td>91</td>
-          <td>880</td>
-          <td>1,166</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>4</td>
-          <td>Naresuan University Clinical AFB</td>
-          <td>500</td>
-          <td>68</td>
-          <td>63</td>
-          <td>631</td>
-          <td>1,944</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>5</td>
-          <td>Detection-TB Multi-Hospital Cohort</td>
-          <td>2,712</td>
-          <td>116</td>
-          <td>112</td>
-          <td>2,899</td>
-          <td>10,303</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>6</td>
-          <td>AFB-Detect Diagnostic Smears</td>
-          <td>1,904</td>
-          <td>136</td>
-          <td>68</td>
-          <td>2,108</td>
-          <td>8,817</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>7</td>
-          <td>Suci Aulia ZN Diagnostic Set</td>
-          <td>259</td>
-          <td>75</td>
-          <td>37</td>
-          <td>371</td>
-          <td>1,959</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>8</td>
-          <td>Mendeley Academic Hayear System</td>
-          <td>856</td>
-          <td>214</td>
-          <td>268</td>
-          <td>1,338</td>
-          <td>11,447</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>9</td>
-          <td>Uganda AI-TB-ZN Reference Negatives</td>
-          <td>200</td>
-          <td>28</td>
-          <td>28</td>
-          <td>256</td>
-          <td>0 (Negative Controls)</td>
-          <td><span class="tag">Audited</span></td>
-        </tr>
-        <tr>
-          <td>Σ</td>
-          <td>Grand Total Datalake</td>
-          <td>13,136</td>
-          <td>952</td>
-          <td>863</td>
-          <td>14,951</td>
-          <td>59,518</td>
-          <td><span class="tag">100% Passed</span></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
+    <section id="resources" aria-labelledby="resources-title">
+      <div class="section-heading">
+        <p class="kicker">Traceability</p>
+        <h2 id="resources-title">Review the evidence and code</h2>
+      </div>
+      <div class="resource-links">
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/MODEL_CARD.md"><strong>Model card</strong><span>Intended use, prohibited use, evidence status, and failure modes</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/DATA_CARD.md"><strong>Dataset card</strong><span>Audit counts, source status, manifest requirements, and split policy</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/SECURITY.md"><strong>Security policy</strong><span>Local deployment boundary, reporting, sensitive data, and model trust</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/releases"><strong>Release history</strong><span>Historical artifacts and future corrected releases</span></a>
+      </div>
+    </section>
+  </main>
 
-<!-- SECTION: WHO PROTOCOL -->
-<section id="grading" class="section">
-  <p class="eyebrow">CLINICAL QUANTITATION</p>
-  <h2>IUATLD / WHO Smear Grading Protocol.</h2>
-  <p class="lede">The engine automatically quantifies identified AFB bacilli and normalizes bacillary density across examined fields using international IUATLD/WHO standards:</p>
-
-  <div style="overflow-x:auto;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>IUATLD / WHO Grade</th>
-          <th>Microscopic Examination Criteria (1000× Oil Immersion HPF)</th>
-          <th>Clinical Interpretation & Infectivity</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Negative</strong></td>
-          <td>0 AFB observed across 100 High-Power Fields (HPF)</td>
-          <td>No acid-fast bacilli detected</td>
-        </tr>
-        <tr>
-          <td><strong>Scanty</strong></td>
-          <td>1 – 9 AFB observed across 100 High-Power Fields</td>
-          <td>Low count; exact number reported (e.g. Scanty 4/100)</td>
-        </tr>
-        <tr>
-          <td><strong>1+</strong></td>
-          <td>10 – 99 AFB observed across 100 High-Power Fields</td>
-          <td>Positive bacillary load</td>
-        </tr>
-        <tr>
-          <td><strong>2+</strong></td>
-          <td>1 – 10 AFB per single HPF (evaluated in 50 fields)</td>
-          <td>Moderate-positive load</td>
-        </tr>
-        <tr>
-          <td><strong>3+</strong></td>
-          <td>&gt; 10 AFB per single HPF (evaluated in 20 fields)</td>
-          <td>High-positive load (highly infectious)</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<!-- SECTION: ARCHITECTURE -->
-<section id="architecture" class="section">
-  <p class="eyebrow">PIPELINE ARCHITECTURE</p>
-  <h2>End-to-end WSI ingestion to clinical report.</h2>
-  <div class="architecture">
-    <div><span>01. Ingestion</span><strong>Whole Slide (.svs) / Smear (.jpg)</strong></div>
-    <i>→</i>
-    <div><span>02. Tiling</span><strong>OpenSlide + Background Masking</strong></div>
-    <i>→</i>
-    <div><span>03. Backbone</span><strong>PyTorch YOLOv8n (FP16)</strong></div>
-    <i>→</i>
-    <div><span>04. NMS</span><strong>Boundary Re-projection & NMS</strong></div>
-    <i>→</i>
-    <div><span>05. Reporting</span><strong>IUATLD / WHO Grader & PDF/API</strong></div>
-  </div>
-</section>
-
-<!-- SECTION: FEATURES -->
-<section id="features" class="section">
-  <p class="eyebrow">FEATURES</p>
-  <h2>Clinical intelligence built for digital pathology.</h2>
-  <div class="grid">
-    <article>
-      <b>01</b>
-      <h3>Whole-Slide Slicing</h3>
-      <p>Automated OpenSlide tiling processes gigapixel slides (.svs, .ndpi, .tiff) with intelligent background skipping to ignore empty glass.</p>
-    </article>
-    <article>
-      <b>02</b>
-      <h3>Boundary-Aware NMS</h3>
-      <p>64px adaptive stride overlaps ensure bacilli on tile borders are reprojected and deduplicated cleanly.</p>
-    </article>
-    <article>
-      <b>03</b>
-      <h3>Active Learning Tool</h3>
-      <p>FastAPI backend with a built-in browser annotation canvas allows pathologists to box new rods and hot-mount weights instantly.</p>
-    </article>
-    <article>
-      <b>04</b>
-      <h3>CFR Part 11 Audit</h3>
-      <p>Cryptographically validated logging records every inference, training event, and data access with sanitized metadata.</p>
-    </article>
-  </div>
-</section>
-
-<section class="section public-note">
-  <div>
-    <p class="eyebrow">RESEARCH COMPLIANCE</p>
-    <h2>Open source, reproducible pathology research.</h2>
-  </div>
-  <p>The entire pipeline, conversion scripts, inference tools, and API backend are open-sourced under the Apache-2.0 License. Designed for transparent medical vision research and reproducible method development.</p>
-</section>
-</main>
-
-<footer>
-  <span>TB-AFB Intelligence Engine · Dr. Abu Suraih Sakhri</span>
-  <span>Apache-2.0 · Digital Pathology Research</span>
-</footer>
-
-<script src="script.js"></script>
+  <footer>
+    <p>TB-AFB Detection Research Pipeline · Research use only · No diagnostic claims</p>
+    <p><a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">Source code</a> · <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/LICENSE">Apache-2.0 code license</a></p>
+  </footer>
 </body>
 </html>

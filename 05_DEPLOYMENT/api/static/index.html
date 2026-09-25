@@ -1,75 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pathology Intelligence | TB AFB Detector</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Inference | TB-AFB</title>
+  <meta name="description" content="Local research interface for candidate acid-fast bacilli object detection.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
 </head>
 <body>
-    <div class="app-container glassmorphism">
-        <header>
-            <h1><span class="highlight">AFB</span> Clinical Intelligence</h1>
-            <p style="margin-top: 5px; font-weight: 600; color: var(--accent-vibrant); font-size: 1.1rem;">Developed by Dr. Abu Suraih Sakhri</p>
-            <p>Universal Whole Slide Image Engine</p>
-        </header>
+  <div class="shell">
+    <header class="app-header">
+      <div>
+        <h1>AFB research inference</h1>
+        <p>Review candidate detections on de-identified raster microscopy images. This interface does not diagnose tuberculosis or identify a mycobacterial species.</p>
+      </div>
+      <nav class="app-nav" aria-label="Application navigation">
+        <a href="index.html" aria-current="page">Inference</a>
+        <a href="annotate.html">Annotation queue</a>
+        <a href="/docs">API</a>
+      </nav>
+    </header>
 
-        <main>
-            <div class="upload-zone" id="drop-zone">
-                <div class="icon-container">
-                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path>
-                    </svg>
-                </div>
-                <h3>Drag & Drop Pathology Scan</h3>
-                <p>Supports Pyramidal TIFF, OME-TIFF, JP2, SVS, NDPI, DICOM, JPG, PNG</p>
-                <!-- Include comprehensive MIME matching string -->
-                <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.tiff,.tif,.ptif,.ptiff,.ome.tif,.ome.tiff,.jp2,.j2k,.jpf,.jpx,.svs,.ndpi,.vms,.vmu,.scn,.bif,.mrxs,.dicom,.dcm" hidden>
-            </div>
-
-            <div class="status-indicator" id="status-bar" style="display: none;">
-                <div class="loader"></div>
-                <span id="status-text">Allocating GPU Pipelines & Parsing Complex Array...</span>
-            </div>
-
-            <div class="results-dashboard" id="results-panel" style="display: none;">
-                <div class="dashboard-header">
-                    <h2>Diagnostic Report</h2>
-                    <div style="display: flex; gap: 15px; align-items: center;">
-                        <input type="text" id="pathologist-name" placeholder="Enter Pathologist Name" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); outline: none; font-family: inherit;">
-                        <button id="download-btn" class="glass-btn highlight" style="background: var(--accent-vibrant); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Download PDF Report</button>
-                        <span class="badge" id="who-grade">Grade: Pending</span>
-                    </div>
-                </div>
-                
-                <div class="hardware-status" id="hw-status" style="margin-bottom: 20px; font-weight:600; color: var(--accent-vibrant); display: flex; justify-content: space-between;">
-                    <span>Hardware: Resolving...</span>
-                    <a id="wsi-viewer-link" href="#" target="_blank" style="display: none; color: var(--accent-vibrant); text-decoration: underline;">Open WSI Navigator</a>
-                </div>
-
-                <div class="preview-container">
-                    <canvas id="slide-canvas"></canvas>
-                </div>
-                
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <h4>Definite AFB</h4>
-                        <span class="value" id="count-definite">0</span>
-                    </div>
-                    <div class="metric-card">
-                        <h4>Possible AFB</h4>
-                        <span class="value" id="count-possible">0</span>
-                    </div>
-                    <div class="metric-card">
-                        <h4>Confidence Range</h4>
-                        <span class="value" id="conf-range">--</span>
-                    </div>
-                </div>
-            </div>
-        </main>
+    <div class="status-banner" role="note">
+      <strong>Historical checkpoint on validation hold.</strong> Results are experimental and must not guide patient care.
     </div>
-    <script src="app.js"></script>
+
+    <main class="workspace">
+      <section class="panel" aria-labelledby="input-title">
+        <div class="panel-header">
+          <h2 id="input-title">Input</h2>
+          <p>JPG, PNG, or ordinary TIFF raster image. Proprietary WSI formats use the local CLI workflow.</p>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label for="api-token">API token <span class="token-note">(only if configured)</span></label>
+            <input id="api-token" type="password" autocomplete="off" spellcheck="false">
+            <small>Kept in this page session only.</small>
+          </div>
+          <label class="file-label" for="file-input">
+            <span id="file-label-text">Choose a de-identified microscopy image</span>
+            <input id="file-input" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,image/jpeg,image/png,image/tiff">
+          </label>
+          <div class="button-row">
+            <button class="primary" id="analyze-button" type="button" disabled>Run research inference</button>
+            <button id="reset-button" type="button">Reset</button>
+          </div>
+          <p id="status" class="status" role="status" aria-live="polite">Choose an image to begin.</p>
+
+          <section id="results" class="results" aria-labelledby="results-title">
+            <div class="panel-header">
+              <h2 id="results-title">Research output</h2>
+              <p id="result-message"></p>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>AFB candidates</span><strong id="candidate-count">0</strong></div>
+              <div class="metric"><span>Confidence range</span><strong id="confidence-range">—</strong></div>
+              <div class="metric"><span>Compute backend</span><strong id="hardware">—</strong></div>
+            </div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="reviewer-name">Research reviewer</label>
+                <input id="reviewer-name" type="text" maxlength="100" autocomplete="name">
+              </div>
+              <button id="download-button" type="button">Download research PDF</button>
+              <p class="disclaimer">The PDF is an experimental research record, not a diagnostic report.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="preview-title">
+        <div class="panel-header">
+          <h2 id="preview-title">Image review</h2>
+          <p>Candidate boxes are drawn in red. Confidence is model output, not diagnostic probability.</p>
+        </div>
+        <div class="preview">
+          <p id="empty-state" class="empty-state">No image selected.</p>
+          <canvas id="slide-canvas" hidden aria-label="Microscopy image with candidate detection boxes"></canvas>
+        </div>
+      </section>
+    </main>
+  </div>
 </body>
 </html>

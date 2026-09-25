@@ -19,11 +19,11 @@ class DataConfig(BaseModel):
         return v
 
 class ModelConfig(BaseModel):
-    architecture: str = "yolov8m"
-    num_classes: int = 5
+    architecture: str = "yolov8n"
+    num_classes: int = 1
     pretrained: bool = True
-    custom_anchors: Dict[str, List[List[int]]]
-    input_channels: int = 3  # or 6 for RGB+HSV
+    custom_anchors: Optional[Dict[str, List[List[int]]]] = None
+    input_channels: int = 3
 
 class TrainConfig(BaseModel):
     epochs: int = 100

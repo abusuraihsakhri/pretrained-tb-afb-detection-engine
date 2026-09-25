@@ -1,7 +1,7 @@
 names:
   0: AFB
 nc: 1
-path: C:/Users/abusu/Desktop/pretrained-tb-afb-detection-engine/01_DATA/processed_tiles
+path: ../01_DATA/processed_tiles
 train: train/images
 val: val/images
 test: test/images

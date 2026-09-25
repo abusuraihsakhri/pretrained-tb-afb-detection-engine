@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -7,10 +8,17 @@ import torch
 class YOLOAFBDetector:
     """Single-class YOLOv8 AFB detector."""
 
-    def __init__(self, model_size: str = "n", num_classes: int = 1, pretrained: bool = True):
+    def __init__(
+        self,
+        model_size: str = "n",
+        num_classes: int = 1,
+        pretrained: bool = True,
+        base_checkpoint: Path | None = None,
+    ):
         self.model_size = model_size
         self.num_classes = num_classes
         self.pretrained = pretrained
+        self.base_checkpoint = Path(base_checkpoint).resolve() if base_checkpoint else None
         self.model = None
 
     def build_model(self) -> Any:
@@ -21,15 +29,39 @@ class YOLOAFBDetector:
 
         if self.model_size not in {"n", "s", "m", "l", "x"}:
             raise ValueError(f"Invalid model size: {self.model_size}")
-        self.model = YOLO(f"yolov8{self.model_size}.pt")
+        if self.num_classes != 1:
+            raise ValueError("This detector supports the single AFB class only.")
+        if self.base_checkpoint is not None:
+            if not self.pretrained:
+                raise ValueError("base_checkpoint cannot be used when pretrained=False")
+            if not self.base_checkpoint.is_file():
+                raise FileNotFoundError(
+                    f"Base checkpoint not found: {self.base_checkpoint}"
+                )
+            model_source = str(self.base_checkpoint)
+        else:
+            model_source = (
+                f"yolov8{self.model_size}.pt"
+                if self.pretrained
+                else f"yolov8{self.model_size}.yaml"
+            )
+        self.model = YOLO(model_source)
         return self.model
 
-    def load_checkpoint(self, checkpoint: Path) -> Any:
+    def load_checkpoint(
+        self, checkpoint: Path, expected_sha256: str | None = None
+    ) -> Any:
         from ultralytics import YOLO
 
         checkpoint = Path(checkpoint).resolve()
         if not checkpoint.is_file():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+        if expected_sha256:
+            digest = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+            if digest.lower() != expected_sha256.lower():
+                raise ValueError(
+                    f"Checkpoint SHA-256 mismatch: expected {expected_sha256}, got {digest}"
+                )
         self.model = YOLO(str(checkpoint))
         return self.model
 

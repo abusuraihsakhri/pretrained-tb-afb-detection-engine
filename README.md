@@ -1,174 +1,180 @@
-# TB-AFB Detection Clinical & Research Pipeline
+# TB-AFB Detection Research Pipeline
 
-### [Open the Live Project Site & Evaluation Dashboard →](https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-engine/)
+[![Research use only](https://img.shields.io/badge/status-research%20use%20only-b45309)](MODEL_CARD.md)
+[![Tests](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/actions/workflows/tests.yml/badge.svg)](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/code-Apache--2.0-2563eb)](LICENSE)
 
-[![Clinical Research](https://img.shields.io/badge/Domain-Digital%20Pathology%20%7C%20ZN%20Microscopy-red.svg)](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine)
-[![PyTorch](https://img.shields.io/badge/Backend-PyTorch%20%7C%20CUDA%20AMP-blue.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
-[![Validation](https://img.shields.io/badge/mAP%4050-64.06%25-brightgreen.svg)](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine)
-[![Training](https://img.shields.io/badge/Training-150%20Epochs%20Complete-blue.svg)](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine)
-[![Release](https://img.shields.io/github/v/release/abusuraihsakhri/pretrained-tb-afb-detection-engine?color=orange&label=Model%20Release)](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine/releases/tag/v1.0.0)
+[Project site](https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/) ·
+[Model card](MODEL_CARD.md) ·
+[Dataset card](DATA_CARD.md) ·
+[Security](SECURITY.md) ·
+[Third-party notices](THIRD_PARTY_NOTICES.md)
 
-A clinical-grade, GPU-accelerated computer vision engine for detecting **Acid-Fast Bacilli (AFB)** (*Mycobacterium tuberculosis*) in Ziehl-Neelsen (ZN) stained microscopic sputum smears and Whole Slide Images (WSIs), trained across **14,951 multi-center microscopy fields** (**59,518 annotated AFB bacilli** across 9 global cohorts). Features full PyTorch YOLOv8 detection, tiled sliding-window WSI inference with boundary-aware Non-Maximum Suppression (NMS), IUATLD/WHO clinical smear grading quantitation, and a FastAPI active learning review tool.
+> **Research use only — validation hold.** The published v1.0.0 checkpoint was
+> trained before an independent audit found exact image leakage across splits and
+> a quarantined source with implausible annotations. Do not use this checkpoint
+> for diagnosis, patient management, smear grading, or reported performance
+> comparisons. A corrected checkpoint has not yet been trained.
 
----
+This repository is a local-first research pipeline for detecting candidate
+acid-fast bacilli (AFB) in Ziehl–Neelsen microscopy images. It includes strict
+dataset validation, YOLO development training, tiled raster/WSI inference,
+global non-maximum suppression, a review queue, and a FastAPI research UI.
 
-## 📊 Empirical Validation Results (150-Epoch Multi-Center Run)
+AFB appearance is **not species-specific**. A detection must not be described as
+identification of *Mycobacterium tuberculosis* or as confirmation of tuberculosis.
 
-The model was trained for **150 full epochs** across 13,136 tiles and evaluated against an unseen multi-center validation cohort consisting of **952 clinical high-power fields (6,280 AFB instances)**:
+## Current evidence status
 
-| Metric | Checkpoint Value | Clinical Description |
-| :--- | :---: | :--- |
-| **mAP@50** | **64.06%** (`0.6406`) | High sensitivity on minute, morphologically diverse bacilli |
-| **Precision ($P$)** | **71.86%** (`0.7186`) | Minimizes false-positive alarms on staining debris and mucin |
-| **Recall ($R$)** | **56.20%** (`0.5620`) | Robust capture rate across 9 disparate clinical microscope optics |
-| **mAP@50-95** | **31.19%** (`0.3119`) | Precise rod boundary localization and tight bounding box regression |
-| **Inference Latency** | **2.5 ms / tile** | Over 400 FPS throughput enabling real-time sliding window review |
-| **Pre/Post-Process** | **0.2 ms / 1.0 ms** | Low latency streaming for gigapixel Whole Slide Images |
-| **Validation Cohort** | **952 HPFs / 6,280 Rods** | Unseen multi-center evaluation across diverse staining protocols |
+The repository contains a historical 150-epoch YOLOv8n checkpoint. Its final
+development-validation outputs were approximately:
 
-### 📈 Convergence & Evaluation Curves
+| Development metric | Historical value | Current interpretation |
+| --- | ---: | --- |
+| Precision | 0.7186 | Not an independent test estimate |
+| Recall | 0.5620 | Not an independent test estimate |
+| mAP@50 | 0.6406 | Invalid for clinical/generalization claims |
+| mAP@50–95 | 0.3119 | Invalid for clinical/generalization claims |
 
-| Training Loss & Convergence | Normalized Confusion Matrix |
-| :---: | :---: |
-| ![Convergence Curves](docs/assets/results.png) | ![Confusion Matrix](docs/assets/confusion_matrix_normalized.png) |
+These values are retained only for provenance. They must not be called
+“accuracy,” “clinical validation,” “cross-validation,” or performance on an
+unseen cohort.
 
-| Precision-Recall Curve | F1-Confidence Calibration Curve |
-| :---: | :---: |
-| ![PR Curve](docs/assets/BoxPR_curve.png) | ![F1 Curve](docs/assets/BoxF1_curve.png) |
+### Audit findings blocking retraining
 
-*Trained weights are tracked at [`03_MODELS/best.pt`](03_MODELS/best.pt) and downloadable directly via [GitHub Release v1.0.0](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine/releases/tag/v1.0.0).*
+The strict audit of the current 14,951-image working dataset found:
 
----
+| Finding | Count |
+| --- | ---: |
+| Label boxes across all splits | 70,723 |
+| Empty label files across all splits | 7,760 |
+| Exact duplicate image groups crossing splits | 131 |
+| Annotation violations reported | 13,710 |
+| `afb-detect` boxes crossing the large-box flag | 25,690 / 26,326 |
 
-## 🩺 Clinical Use Cases & Deployment Workflows
+The source `afb-detect` is quarantined by default. Training is intentionally
+blocked until the audit passes.
 
-1. **High-Throughput Smear Triage:** Automated pre-screening in high-burden diagnostic centers. Rapidly separates confirmed negative sputum smears from suspicious fields, reducing pathologist screening time by >75% and preventing diagnostic fatigue.
-2. **Whole Slide Image (WSI) Digital Pathology:** Direct integration with digital pathology scanners (Aperio, Hamamatsu, 3DHISTECH) via OpenSlide. Performs 640×640 boundary-aware sliding-window tiling and coordinate re-projection to map AFB clusters across entire gigapixel glass surfaces.
-3. **Point-of-Care & Edge Telepathology:** Compact neural architecture (3.01M parameters, 8.1 GFLOPs) allows deployment on portable digital microscopes, mobile diagnostic vans, and field clinics without requiring cloud infrastructure.
-4. **Standardized Quantitation & IUATLD/WHO Grading:** Translates raw rod coordinates into standardized international clinical grades, providing consistent, reproducible reporting across clinical institutions.
-5. **Pathologist Active Learning (Human-in-the-Loop):** Integrated browser-based review tool (`/ui/`) allows clinical teams to inspect borderline bacilli, adjust bounding boxes, and hot-mount fine-tuned weights for regional stain adaptation.
+## Reproducible workflow
 
----
+### 1. Create an environment
 
-## 🔬 Multi-Center Clinical Datalake (14,951 Patches)
+Python 3.12 is used in CI. The pinned runtime file preserves the historical
+software snapshot; package upgrades require a compatibility evaluation.
 
-The model is trained on a diverse, multi-center digital pathology datalake aggregating **14,951 microscopic fields** with **59,518 expert-annotated AFB rods** and **7,242 verified negative background control fields**:
-
-| # | Clinical Cohort / Source | Scope & Hardware | Train | Val | Test | Total Images | Annotated AFB |
-| :-: | :--- | :--- | :-: | :-: | :-: | :-: | :-: |
-| **1** | **SWU Tuberculosis Cohort 1** | Srinakharinwirot Univ (`v1`) | 3,468 | 144 | 69 | 3,681 | 10,774 |
-| **2** | **SWU Tuberculosis Cohort 2** | Srinakharinwirot Univ (`v3`) | 2,660 | 0 | 127 | 2,787 | 9,969 |
-| **3** | **Athar Microscopy Cohort** | High-density AFB Smears (`v1`) | 618 | 171 | 91 | 880 | 1,166 |
-| **4** | **Naresuan University Cohort** | Overlapping/isolated rods (`v15`) | 500 | 68 | 63 | 631 | 1,944 |
-| **5** | **Detection-TB Expansion** | Multi-institution smear cohort (`v5`) | 2,712 | 116 | 112 | 2,899 | 10,303 |
-| **6** | **AFB-Detect Clinical Smears** | High-throughput digital smears (`v4`) | 1,904 | 136 | 68 | 2,108 | 8,817 |
-| **7** | **Suci Aulia Pathology** | ZN diagnostic smear set (`v10`) | 259 | 75 | 37 | 371 | 1,959 |
-| **8** | **Mendeley Academic Hayear** | Dual-camera raw clinical set | 856 | 214 | 268 | 1,338 | 11,447 |
-| **9** | **Uganda AI-TB-ZN Controls** | Southwestern Uganda verified negatives | 200 | 28 | 28 | 256 | 0 (Pure Negatives) |
-| | **Grand Total** | | **13,136** | **952** | **863** | **14,951** | **59,518** |
-
-*All 14,951 images and 14,951 labels have passed strict automated tensor matrix symmetry audits with 0 corrupted files.*
-
----
-
-## 🏛️ End-to-End System Architecture
-
-```text
-[ Whole Slide Image (.svs / .ndpi) or Raster Smear (.jpg / .png) ]
-                           │
-                           ▼
-          [ OpenSlide / libVIPS Tiling Engine ]
-          ├── Background Glass Masking (Otsu Thresholding)
-          └── 640×640 Window Tiling (64px Adaptive Stride Overlap)
-                           │
-                           ▼
-            [ Neural Detection Backbone ]
-          ├── Architecture: YOLOv8n (3.01M Parameters)
-          ├── Single-Class Target: Class 0 -> AFB Bacilli
-          └── CUDA AMP Inference Engine (2.5ms / tile)
-                           │
-                           ▼
-       [ Boundary-Aware Post-Processing Orchestrator ]
-          ├── Coordinate Re-Projection (Local Tile -> Global Slide)
-          └── Vectorized Global NMS (IoU = 0.45, Conf >= 0.25)
-                           │
-                           ▼
-             [ IUATLD / WHO Smear Grader ]
-          ├── IUATLD Scale Quantitation (Negative, Scanty, 1+, 2+, 3+)
-          ├── High-Power Field (HPF) Normalized Density
-          └── Structured Diagnostic Clinical PDF/JSON Export
-```
-
----
-
-## 📋 IUATLD / WHO Smear Grading Protocol
-
-Smear grading strictly follows the International Union Against Tuberculosis and Lung Disease (IUATLD) and World Health Organization (WHO) clinical quantitation guidelines:
-
-| Smear Grade | Microscopic Examination Criteria (1000× Oil Immersion HPF) | Clinical Interpretation |
-| :--- | :--- | :--- |
-| **Negative** | **0 AFB** observed across 100 High-Power Fields (HPF) | No acid-fast bacilli observed |
-| **Scanty** | **1 – 9 AFB** observed across 100 High-Power Fields | Exact count recorded (e.g. Scanty 4/100) |
-| **1+** | **10 – 99 AFB** observed across 100 High-Power Fields | Low-positive bacillary load |
-| **2+** | **1 – 10 AFB per single HPF** (evaluated across 50 fields) | Moderate-positive bacillary load |
-| **3+** | **> 10 AFB per single HPF** (evaluated across 20 fields) | High-positive bacillary load (highly infectious) |
-
----
-
-## 🚀 Quickstart & Inference
-
-### 1. Environment Setup
 ```bash
-git clone https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-engine.git
-cd pretrained-tb-afb-detection-engine
-pip install -r requirements.txt
+python -m venv .venv
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-### 2. Verify Datalake Integrity
+### 2. Audit the dataset
+
 ```bash
 python 02_CODE/scripts/check_data_integrity.py
 ```
 
-### 3. Run Inference with Fine-Tuned Checkpoint
+The command checks all splits, image decoding, image/label symmetry, box
+validity, class IDs, source-level box distributions, quarantined sources, and
+exact duplicate leakage. It writes a machine-readable report under
+`06_LOGS/audits/` and exits non-zero when the dataset is unsuitable.
+
+### 3. Train only after the audit passes
+
+```bash
+python 02_CODE/scripts/02_train.py --data data.yaml --epochs 150 --batch 16
+```
+
+Training records the configuration, dataset-audit, Git commit, and checkpoint
+hashes. The pretrained initialization is pinned by `yolov8n.pt.sha256`; training
+refuses an absent or altered base checkpoint instead of silently downloading a
+different artifact. It uses development validation only and does not evaluate
+the test split.
+
+### 4. Evaluate the locked test set once
+
+After the dataset, model, and operating threshold are frozen:
+
+```bash
+python 02_CODE/scripts/03_evaluate_locked.py \
+  --model 03_MODELS/best.pt \
+  --data 02_CODE/data.yaml \
+  --split test \
+  --acknowledge-test-lock
+```
+
+### 5. Run research inference
+
 ```bash
 python 02_CODE/scripts/04_inference.py \
   --model 03_MODELS/best.pt \
-  --wsi 01_DATA/processed_tiles/test/images/acad_mendeley_Screenshot_101.png \
-  --conf 0.25 \
-  --fields-examined 100
+  --wsi path/to/research-image.png \
+  --conf 0.25
 ```
 
-### 4. Start the Web UI & FastAPI Server
+Morphology filtering is disabled by default. It may be explored only with a
+known calibration:
+
+```bash
+python 02_CODE/scripts/04_inference.py \
+  --model 03_MODELS/best.pt \
+  --wsi path/to/research-image.png \
+  --microns-per-pixel 0.25 \
+  --morphology-filter
+```
+
+Smear-category output additionally requires an explicit 1000× sampling-protocol
+confirmation. It remains research output, not a diagnosis.
+
+## Local API and review UI
+
+Start the API locally:
+
 ```bash
 uvicorn 05_DEPLOYMENT.api.server:app --host 127.0.0.1 --port 8001
 ```
-Open your browser to `http://127.0.0.1:8001/ui/` for the interactive slide viewer and pathologist annotation tool.
 
----
+Then open `http://127.0.0.1:8001/ui/`.
 
-## 📁 Repository Layout
+Data-changing endpoints are disabled until `TB_AFB_API_TOKEN` is set. Submitted
+annotations enter `01_DATA/review_queue/`; they are not assigned randomly to
+training or validation. A curator must attach specimen/slide provenance and
+assign a group-safe split.
+
+For the container workflow, create a local `.env` containing a strong token and
+the expected model checksum. Docker Compose binds only to `127.0.0.1` by default.
+
+## Repository structure
 
 ```text
-├── 01_DATA/
-│   ├── processed_tiles/        # Standardized train/val/test images & YOLO labels
-│   └── raw_academic/           # Academic archives (Mendeley, Uganda AI-TB)
-├── 02_CODE/
-│   ├── data.yaml               # Single-class dataset configuration
-│   ├── scripts/                # Ingestion, audit, training, and inference scripts
-│   └── src/tb_afb/             # Core detector, WSI tiler, postprocessor, grader
-├── 03_MODELS/                  # Staged best.pt weights and release checkpoints
-├── 05_DEPLOYMENT/              # FastAPI server, static viewer & annotation UI
-├── 06_LOGS/
-│   └── training/latest/        # Final training curves, confusion matrix, and results.csv
-├── docs/                       # Live GitHub Pages research portal & visual assets
-└── tests/                      # Automated test suites
+01_DATA/                 Local, ignored source and derived data
+02_CODE/scripts/         Audit, ingestion, training, evaluation, inference
+02_CODE/src/tb_afb/      Reusable model and inference modules
+03_MODELS/               Pinned checkpoint and SHA-256 sidecar
+05_DEPLOYMENT/           Local FastAPI application and review UI
+06_LOGS/                 Ignored audit, training, and evaluation records
+docs/                    GitHub Pages research status site
+tests/                   Unit and validation tests
 ```
 
----
+## Scientific limitations
 
-## ⚖️ License & Clinical Disclaimer
+- The current checkpoint has not passed independent evaluation.
+- The available filenames do not establish patient- or specimen-level
+  independence for every source.
+- Source licenses and upstream class definitions require a completed provenance
+  review before redistribution or retraining.
+- AFB microscopy does not identify a mycobacterial species.
+- Performance across laboratories, scanners, stains, populations, and low-load
+  specimens is unknown.
+- No prospective, external-site, workflow, reader, calibration, fairness, or
+  clinical-impact study has been completed.
 
-Distributed under the **Apache License 2.0**.
+See [MODEL_CARD.md](MODEL_CARD.md) and [DATA_CARD.md](DATA_CARD.md) for the
+release and data-governance status.
 
-> **Research and Investigational Use Only**: This software is intended for computer vision research, method development, and clinical evaluation. It is not an FDA/CE-IVD approved diagnostic medical device. Diagnostic decisions should always be confirmed by certified clinical pathologists and validated laboratory protocols.
+## License
+
+Repository code is provided under Apache License 2.0. Model, dependency, and
+dataset licenses must be reviewed separately; the repository license does not
+replace third-party terms.

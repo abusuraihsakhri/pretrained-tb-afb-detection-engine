@@ -2,23 +2,37 @@ import numpy as np
 from typing import List, Dict
 
 class DetectionPostprocessor:
-    """
-    Post-processing filters based on AFB morphology.
-    Protected against Integer Overflows within aspect ratio derivations.
-    """
+    """Confidence filtering, optional calibrated morphology, and global NMS."""
     MIN_ASPECT_RATIO = 2.0      
     MAX_ASPECT_RATIO = 10.0     
     MIN_AREA_MICRONS = 2.0       
     MAX_AREA_MICRONS = 20.0     
-    PIXEL_SIZE_MICRONS = 0.25    
-    
-    def __init__(self, min_confidence: float = 0.3, nms_iou_threshold: float = 0.5):
+
+    def __init__(
+        self,
+        min_confidence: float = 0.3,
+        nms_iou_threshold: float = 0.5,
+        *,
+        enable_morphology_filter: bool = False,
+    ):
         self.min_confidence = min_confidence
         self.nms_iou_threshold = nms_iou_threshold
+        self.enable_morphology_filter = enable_morphology_filter
 
-    def filter(self, detections: List[Dict]) -> List[Dict]:
+    def filter(
+        self,
+        detections: List[Dict],
+        *,
+        pixel_size_microns: float | None = None,
+    ) -> List[Dict]:
         if not detections:
             return []
+        if self.enable_morphology_filter and (
+            pixel_size_microns is None or pixel_size_microns <= 0
+        ):
+            raise ValueError(
+                "Morphology filtering requires a positive calibrated microns-per-pixel value."
+            )
             
         filtered = []
         for det in detections:
@@ -30,14 +44,19 @@ class DetectionPostprocessor:
                 continue
                 
             aspect_ratio = max(w, h) / (min(w, h) + 1e-6)
-            area_microns = (w * self.PIXEL_SIZE_MICRONS) * (h * self.PIXEL_SIZE_MICRONS)
             conf = det.get('confidence', 0)
-            
-            if conf >= self.min_confidence:
-                # AFB Morphology check: Bacilli are typically rod-shaped (high aspect ratio)
-                if self.MIN_ASPECT_RATIO <= aspect_ratio <= self.MAX_ASPECT_RATIO:
-                    if self.MIN_AREA_MICRONS <= area_microns <= self.MAX_AREA_MICRONS:
-                         filtered.append(det)
+
+            if conf < self.min_confidence:
+                continue
+            if self.enable_morphology_filter:
+                area_microns = (
+                    w * float(pixel_size_microns)
+                ) * (h * float(pixel_size_microns))
+                if not self.MIN_ASPECT_RATIO <= aspect_ratio <= self.MAX_ASPECT_RATIO:
+                    continue
+                if not self.MIN_AREA_MICRONS <= area_microns <= self.MAX_AREA_MICRONS:
+                    continue
+            filtered.append(det)
         
         # Apply NMS to the filtered detections
         if not filtered:
@@ -73,7 +92,7 @@ class DetectionPostprocessor:
         x2 = boxes[:, 2]
         y2 = boxes[:, 3]
         
-        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+        areas = np.maximum(0.0, x2 - x1) * np.maximum(0.0, y2 - y1)
         order = scores.argsort()[::-1]
         
         keep = []
@@ -86,8 +105,8 @@ class DetectionPostprocessor:
             xx2 = np.minimum(x2[i], x2[order[1:]])
             yy2 = np.minimum(y2[i], y2[order[1:]])
             
-            w = np.maximum(0.0, xx2 - xx1 + 1)
-            h = np.maximum(0.0, yy2 - yy1 + 1)
+            w = np.maximum(0.0, xx2 - xx1)
+            h = np.maximum(0.0, yy2 - yy1)
             inter = w * h
             
             ovr = inter / (areas[i] + areas[order[1:]] - inter + 1e-6)
