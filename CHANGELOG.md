@@ -33,6 +33,9 @@
 - Updated PyTorch, Torchvision, FastAPI, Starlette's resolved dependency, and
   python-multipart to non-vulnerable compatible releases identified by the
   dependency audit.
+- Moved the default container to a smaller CPU runtime, installed PyTorch from
+  its official CPU wheel index, and updated OpenSlide Python to a wheel-enabled
+  release so the image builds without an undeclared compiler toolchain.
 
 ### Documentation and web
 

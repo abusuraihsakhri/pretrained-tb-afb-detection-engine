@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+FROM python:3.12-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -6,8 +6,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
     libgl1 \
     libglib2.0-0 \
     libopenslide0 \
@@ -20,7 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch==2.13.0 torchvision==0.28.0 \
+    && python -m pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=app:app 02_CODE ./02_CODE
 COPY --chown=app:app 03_MODELS ./03_MODELS
@@ -33,6 +34,6 @@ USER app
 EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz', timeout=3)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz', timeout=3)" || exit 1
 
-CMD ["python3", "-m", "uvicorn", "05_DEPLOYMENT.api.server:app", "--host", "0.0.0.0", "--port", "8001", "--no-server-header"]
+CMD ["python", "-m", "uvicorn", "05_DEPLOYMENT.api.server:app", "--host", "0.0.0.0", "--port", "8001", "--no-server-header"]

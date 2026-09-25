@@ -8,7 +8,7 @@ setup(
     packages=find_packages(where="src"),
     install_requires=[
         "numpy>=1.24.0",
-        "openslide-python>=1.3.0",
+        "openslide-python>=1.4.6",
         "opencv-python-headless>=4.10.0",
         "torch>=2.13.0",
         "pydantic>=2.0.0",

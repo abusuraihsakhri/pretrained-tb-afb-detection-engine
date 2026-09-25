@@ -142,7 +142,9 @@ training or validation. A curator must attach specimen/slide provenance and
 assign a group-safe split.
 
 For the container workflow, create a local `.env` containing a strong token and
-the expected model checksum. Docker Compose binds only to `127.0.0.1` by default.
+the expected model checksum. Docker Compose binds only to `127.0.0.1` and uses
+the reproducible CPU runtime by default. Configure and validate a separate
+hardware-specific image before enabling GPU acceleration.
 
 ## Repository structure
 
