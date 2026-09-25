@@ -2,24 +2,24 @@
 # Upgrade in a compatibility branch and compare against the corrected locked test.
 
 # Core deep learning
-torch==2.13.0
-torchvision==0.28.0
-ultralytics==8.4.31
+torch==2.14.0
+torchvision==0.29.0
+ultralytics==8.4.159
 
 # Computer vision and array manipulation
-opencv-python-headless==4.10.0.84
-numpy==1.26.4
-openslide-python==1.3.1
+opencv-python-headless==5.0.0.93
+numpy==2.5.3
+openslide-python==1.4.6
 roboflow==1.5.1
 
 # API backend
 fastapi==0.141.1
-uvicorn[standard]==0.32.1
-pydantic==2.12.5
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
 
 # Configuration utilities
-pyyaml==6.0.1
+pyyaml==6.0.3
 python-multipart==0.0.32
 
 # Research PDF reporting
-fpdf2==2.8.1
+fpdf2==2.8.8
