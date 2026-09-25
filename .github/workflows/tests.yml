@@ -23,7 +23,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-test.txt
       - run: python -m compileall -q 02_CODE 05_DEPLOYMENT tests
-      - run: pytest -q
+      - run: python -m pytest -q
       - name: Validate dataset schema
         run: python -c "import pathlib,yaml; p=pathlib.Path('02_CODE/data.yaml'); d=yaml.safe_load(p.read_text()); assert d['nc']==1 and d['names']=={0:'AFB'}; assert not pathlib.Path(d['path']).is_absolute()"
       - name: Validate audit and curation CLIs
@@ -40,4 +40,4 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-api-test.txt
-      - run: pytest -q tests/test_api_contract.py tests/test_docs.py
+      - run: python -m pytest -q tests/test_api_contract.py tests/test_docs.py

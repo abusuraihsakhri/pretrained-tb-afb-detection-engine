@@ -28,6 +28,8 @@
   research-only reports, and an opt-in remote-training gate.
 - Hardened Docker with a non-root user, localhost host binding, health check,
   read-only runtime, dropped capabilities, and `.dockerignore` protection.
+- Updated the Roboflow client pin to a release compatible with the pinned
+  OpenCV runtime and made CI invoke pytest through the selected Python runtime.
 
 ### Documentation and web
 
