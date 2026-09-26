@@ -1,15 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
-  <title id="title">TB-AFB Microscopy Research Pipeline</title>
-  <desc id="description">Research pipeline for AFB image analysis, including dataset audits and historical model results.</desc>
-  <rect width="1200" height="630" fill="#f5f6f2"/>
-  <rect x="74" y="64" width="72" height="72" rx="8" fill="#28543d"/>
-  <text x="110" y="109" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#fff">AFB</text>
-  <text x="74" y="195" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="2" fill="#28543d">OPEN RESEARCH PROJECT · MICROSCOPY</text>
-  <text x="74" y="286" font-family="Arial, sans-serif" font-size="57" font-weight="700" fill="#202923">A reproducible pipeline</text>
-  <text x="74" y="352" font-family="Arial, sans-serif" font-size="57" font-weight="700" fill="#202923">for AFB image analysis</text>
-  <text x="74" y="414" font-family="Arial, sans-serif" font-size="25" fill="#59645d">Dataset audits · model development · tiled inference · review</text>
-  <line x1="74" y1="470" x2="1126" y2="470" stroke="#d7ddd7" stroke-width="2"/>
-  <text x="74" y="530" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#202923">14,951 images audited</text>
-  <text x="454" y="530" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#202923">70,723 label boxes reviewed</text>
-  <text x="908" y="530" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#202923">Research use only</text>
+  <title id="title">TB-AFB Detection Research Pipeline</title>
+  <desc id="description">AFB detection research for digital microscopy, with reproducible data auditing, development, and review workflows.</desc>
+  <rect width="1200" height="630" fill="#f6f8f7"/>
+  <text x="74" y="94" font-family="Arial, sans-serif" font-size="25" font-weight="800" letter-spacing="2" fill="#08785e">TB-AFB · DIGITAL MICROSCOPY</text>
+  <text x="74" y="217" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#13201c">AFB detection research,</text>
+  <text x="74" y="292" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#08785e">built for reproducibility.</text>
+  <text x="74" y="368" font-family="Arial, sans-serif" font-size="27" fill="#60706a">Dataset audit · model development · tiled inference · review</text>
+  <line x1="74" y1="454" x2="1126" y2="454" stroke="#dce4e0" stroke-width="2"/>
+  <text x="74" y="520" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#13201c">14,951 images audited</text>
+  <text x="454" y="520" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#13201c">70,723 label boxes</text>
+  <text x="828" y="520" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#13201c">150-epoch historic run</text>
 </svg>
