@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Research Status | TB-AFB Detection</title>
-  <meta name="description" content="Audit status, limitations, and reproducible workflow for an experimental acid-fast bacilli microscopy detection pipeline.">
-  <meta name="theme-color" content="#f4f7f5" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#111915" media="(prefers-color-scheme: dark)">
+  <title>TB-AFB Microscopy Research Pipeline</title>
+  <meta name="description" content="Explore the TB-AFB microscopy research pipeline: dataset audits, historical model results, reproducible tools, and current limitations.">
+  <meta name="theme-color" content="#f5f6f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#151a17" media="(prefers-color-scheme: dark)">
   <meta name="color-scheme" content="light dark">
   <link rel="canonical" href="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -14,15 +14,15 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="TB-AFB Detection Research Pipeline">
-  <meta property="og:title" content="TB-AFB Detection Research Status">
-  <meta property="og:description" content="Transparent audit findings, limitations, and reproducible next steps for an experimental AFB microscopy detector.">
+  <meta property="og:title" content="TB-AFB Microscopy Research Pipeline">
+  <meta property="og:description" content="A reproducible research workflow for candidate AFB microscopy detection, with dataset audit findings and historical model results.">
   <meta property="og:url" content="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/">
   <meta property="og:image" content="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/og-card.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="TB-AFB Detection Research Status">
-  <meta name="twitter:description" content="Audit findings, limitations, and reproducible next steps for an experimental AFB microscopy detector.">
+  <meta name="twitter:title" content="TB-AFB Microscopy Research Pipeline">
+  <meta name="twitter:description" content="A reproducible research workflow for candidate AFB microscopy detection, with dataset audit findings and historical model results.">
   <meta name="twitter:image" content="https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/og-card.png">
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
@@ -31,7 +31,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareSourceCode",
     "name": "TB-AFB Detection Research Pipeline",
-    "description": "Experimental research software for auditing and developing acid-fast bacilli microscopy object detection.",
+    "description": "Research software for auditing data and developing candidate acid-fast bacilli detection in microscopy images.",
     "codeRepository": "https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "programmingLanguage": "Python",
@@ -44,7 +44,7 @@
 
   <header class="site-header">
     <div class="nav-shell">
-      <a class="brand" href="#top" aria-label="TB-AFB research status home">
+      <a class="brand" href="#top" aria-label="TB-AFB research project home">
         <span class="brand-mark" aria-hidden="true">AFB</span>
         <span>TB-AFB Research</span>
       </a>
@@ -52,11 +52,11 @@
         Menu
       </button>
       <nav id="primary-navigation" aria-label="Primary navigation">
-        <a href="#status">Status</a>
-        <a href="#audit">Audit</a>
+        <a href="#work">Project</a>
+        <a href="#results">Results</a>
         <a href="#workflow">Workflow</a>
         <a href="#limitations">Limitations</a>
-        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">GitHub</a>
+        <a href="#resources">Resources</a>
       </nav>
       <button class="theme-button" type="button" aria-pressed="false" aria-label="Use dark theme">
         <span aria-hidden="true">◐</span><span class="theme-label">Theme</span>
@@ -66,99 +66,129 @@
 
   <main id="main-content">
     <section class="hero" id="top" aria-labelledby="page-title">
-      <div class="eyebrow">Open research software · validation hold</div>
-      <h1 id="page-title">Evidence before deployment</h1>
-      <p class="lede">An experimental pipeline for candidate acid-fast bacilli detection in Ziehl–Neelsen microscopy, now undergoing dataset correction and independent re-evaluation.</p>
-      <div class="notice" role="status">
-        <strong>Do not use the v1.0.0 checkpoint for diagnosis or patient care.</strong>
-        A post-release audit found exact train–validation–test leakage and a quarantined annotation source. A corrected model has not yet been trained.
-      </div>
+      <div class="eyebrow">Open research project · Ziehl–Neelsen microscopy</div>
+      <h1 id="page-title">Building a reproducible pipeline for AFB image analysis</h1>
+      <p class="lede">This project brings together dataset auditing, model development, tiled microscopy inference, and a local review interface to explore candidate acid-fast bacilli (AFB) detection.</p>
+      <p class="hero-note">This public record brings together the implementation, audit findings, historical training outputs, and next steps for a stronger evaluation.</p>
       <div class="actions">
-        <a class="button primary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/MODEL_CARD.md">Read the model card</a>
-        <a class="button secondary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">Inspect the repository</a>
+        <a class="button primary" href="#results">Explore project results</a>
+        <a class="button secondary" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">Browse the code on GitHub</a>
       </div>
-    </section>
-
-    <section id="status" aria-labelledby="status-title">
-      <div class="section-heading">
-        <p class="kicker">Current status</p>
-        <h2 id="status-title">What is usable today</h2>
-        <p>The software is useful for auditing, development, and non-clinical experimentation. The historical checkpoint is preserved for provenance, not as validated performance evidence.</p>
-      </div>
-      <dl class="status-grid">
-        <div><dt>Repository</dt><dd>Active research code</dd></div>
-        <div><dt>Historical checkpoint</dt><dd>Validation hold</dd></div>
-        <div><dt>Dataset audit</dt><dd>Failing by design</dd></div>
-        <div><dt>Clinical use</dt><dd>Not supported</dd></div>
+      <dl class="project-facts" aria-label="Project facts">
+        <div><dt>Images audited</dt><dd>14,951</dd></div>
+        <div><dt>Label boxes reviewed</dt><dd>70,723</dd></div>
+        <div><dt>Historical training run</dt><dd>150 epochs</dd></div>
       </dl>
     </section>
 
-    <section id="audit" aria-labelledby="audit-title">
+    <section id="work" aria-labelledby="work-title">
       <div class="section-heading">
-        <p class="kicker">Reproducible audit</p>
-        <h2 id="audit-title">The blockers are visible</h2>
-        <p>The new validator examines every split and fails before training when leakage, invalid annotations, or quarantined sources remain.</p>
+        <p class="kicker">The project</p>
+        <h2 id="work-title">From image data to a reviewable result</h2>
+        <p>The repository is more than a trained checkpoint. It contains the steps and tools around a model that make the work inspectable and repeatable.</p>
       </div>
-      <div class="table-scroll" tabindex="0" aria-label="Scrollable data-audit findings table">
-        <table>
-          <caption>Findings in the historical 14,951-image aggregate</caption>
-          <thead>
-            <tr><th scope="col">Finding</th><th scope="col">Observed</th><th scope="col">Decision</th></tr>
-          </thead>
-          <tbody>
-            <tr><th scope="row">Label boxes, all splits</th><td class="number">70,723</td><td>Reconcile with source manifests</td></tr>
-            <tr><th scope="row">Empty label files</th><td class="number">7,760</td><td>Verify true-negative status</td></tr>
-            <tr><th scope="row">Exact duplicate groups crossing splits</th><td class="number critical">131</td><td>Block training and evaluation</td></tr>
-            <tr><th scope="row">Annotation rule violations</th><td class="number critical">13,710</td><td>Correct or exclude</td></tr>
-            <tr><th scope="row"><code>afb-detect</code> large-box flags</th><td class="number critical">25,690 / 26,326</td><td>Source quarantined</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="method-note">Counts describe the local historical aggregate. Rule violations can include multiple failures for one box. See the dataset card and machine-readable audit for definitions.</p>
+      <ol class="work-list">
+        <li>
+          <span class="work-index" aria-hidden="true">01</span>
+          <div><h3>Dataset intake and audit</h3><p>Source manifests, label checks, duplicate detection, annotation-rule checks, and a machine-readable audit report help surface data-quality issues before training.</p></div>
+          <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/02_CODE/scripts/check_data_integrity.py">View audit code <span aria-hidden="true">↗</span></a>
+        </li>
+        <li>
+          <span class="work-index" aria-hidden="true">02</span>
+          <div><h3>Model development</h3><p>A YOLOv8n development workflow records configuration, dataset-audit status, source revision, and checkpoint hashes. A strict preflight prevents training on an unapproved dataset.</p></div>
+          <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/02_CODE/scripts/02_train.py">View training workflow <span aria-hidden="true">↗</span></a>
+        </li>
+        <li>
+          <span class="work-index" aria-hidden="true">03</span>
+          <div><h3>Tiled inference and review</h3><p>Research inference supports large microscopy images, with a local API and review interface for inspecting model candidates rather than treating detections as diagnoses.</p></div>
+          <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/tree/main/05_DEPLOYMENT">View review tools <span aria-hidden="true">↗</span></a>
+        </li>
+        <li>
+          <span class="work-index" aria-hidden="true">04</span>
+          <div><h3>Reproducibility and release</h3><p>Documentation, tests, container configuration, and automated repository checks support a transparent, local-first research workflow.</p></div>
+          <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/actions">View project checks <span aria-hidden="true">↗</span></a>
+        </li>
+      </ol>
     </section>
 
-    <section id="evidence" aria-labelledby="evidence-title">
+    <section id="results" aria-labelledby="results-title">
       <div class="section-heading">
-        <p class="kicker">Historical evidence</p>
-        <h2 id="evidence-title">Development metrics are not test performance</h2>
-        <p>The earlier validation run produced the values below. Because the split is contaminated and the suspect source contributed many annotations, the values cannot support generalization or clinical claims.</p>
+        <p class="kicker">Results to date</p>
+        <h2 id="results-title">What the data and model runs showed</h2>
+        <p>Both the dataset audit and the historical development run are part of the project record. The audit revealed issues that change how the earlier model metrics should be interpreted.</p>
       </div>
-      <div class="metrics" aria-label="Historical development metrics">
-        <div><span>Precision</span><strong>0.7186</strong></div>
-        <div><span>Recall</span><strong>0.5620</strong></div>
-        <div><span>mAP@50</span><strong>0.6406</strong></div>
-        <div><span>mAP@50–95</span><strong>0.3119</strong></div>
+
+      <div class="results-layout">
+        <div class="audit-results">
+          <h3>Dataset audit</h3>
+          <p class="result-intro">Checks on the local historical aggregate surfaced duplicate images across splits and substantial annotation issues.</p>
+          <div class="table-scroll" tabindex="0" aria-label="Scrollable table of dataset audit findings">
+            <table class="audit-table">
+              <caption>Findings in the historical local aggregate</caption>
+              <thead><tr><th scope="col">Audit measure</th><th scope="col">Observed</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Images</th><td class="number">14,951</td></tr>
+                <tr><th scope="row">Label boxes, all splits</th><td class="number">70,723</td></tr>
+                <tr><th scope="row">Empty label files</th><td class="number">7,760</td></tr>
+                <tr><th scope="row">Exact duplicate groups crossing splits</th><td class="number">131</td></tr>
+                <tr><th scope="row">Annotation rule violations*</th><td class="number">13,710</td></tr>
+                <tr><th scope="row"><code>afb-detect</code> large-box flags†</th><td class="number">25,690 / 26,326</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="method-note">*A box can fail more than one rule. †This source is quarantined. The source aggregate and audit definitions are documented in the dataset card; this dataset is not approved for retraining or reported evaluation.</p>
+          <a class="text-link" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/DATA_CARD.md">Read the dataset card <span aria-hidden="true">→</span></a>
+        </div>
+
+        <div class="model-results">
+          <h3>Historical model run <span class="status-tag">Validation hold</span></h3>
+          <p class="result-intro">A 150-epoch development run produced the following final validation outputs:</p>
+          <dl class="metrics" aria-label="Historical development validation metrics">
+            <div><dt>Precision</dt><dd>0.7186</dd></div>
+            <div><dt>Recall</dt><dd>0.5620</dd></div>
+            <div><dt>mAP@50</dt><dd>0.6406</dd></div>
+            <div><dt>mAP@50–95</dt><dd>0.3119</dd></div>
+          </dl>
+          <figure>
+            <img src="assets/results.png" alt="Training history charts from the historical 150-epoch YOLOv8n run, showing losses and development-validation metrics over epochs">
+            <figcaption>Training history from the historical run. These validation values are not independent performance estimates: exact duplicates crossed splits, and one annotation source was later quarantined.</figcaption>
+          </figure>
+          <a class="text-link" href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/MODEL_CARD.md">Read the model card <span aria-hidden="true">→</span></a>
+        </div>
       </div>
-      <figure>
-        <img src="assets/results.png" alt="Historical training and validation curves across 150 epochs">
-        <figcaption>Historical development curves, retained for provenance. They do not demonstrate “zero overfitting” or independent validation.</figcaption>
-      </figure>
+      <p class="status-note"><strong>Current model status:</strong> The historical checkpoint is preserved for provenance only. A corrected model has not yet been trained; the current checkpoint is not for diagnosis, patient management, or clinical decisions.</p>
     </section>
 
     <section id="workflow" aria-labelledby="workflow-title">
       <div class="section-heading">
-        <p class="kicker">Correction pathway</p>
-        <h2 id="workflow-title">From raw provenance to a locked test</h2>
+        <p class="kicker">Reproducible workflow</p>
+        <h2 id="workflow-title">What comes next for a valid evaluation</h2>
+        <p>The audit has made the next scientific steps explicit. These are required before a new model result can be interpreted as an independent evaluation.</p>
       </div>
       <ol class="workflow-list">
-        <li><strong>Verify sources.</strong><span>Record pinned version, license, classes, annotation type, acquisition metadata, and exclusions.</span></li>
-        <li><strong>Correct annotations.</strong><span>Exclude quarantined records and reject malformed or out-of-bounds boxes without silent repair.</span></li>
-        <li><strong>Group before splitting.</strong><span>Keep each patient, specimen, smear/slide, original field, and duplicate cluster in one split.</span></li>
-        <li><strong>Develop without the test set.</strong><span>Use training and development validation for model and threshold selection.</span></li>
-        <li><strong>Evaluate once.</strong><span>Run the locked test with frozen hashes, confidence intervals, source-level results, and error analysis.</span></li>
+        <li><strong>Verify sources.</strong><span>Confirm pinned versions, licenses, class definitions, acquisition metadata, and exclusions.</span></li>
+        <li><strong>Correct and curate.</strong><span>Resolve annotation issues and exclude quarantined or license-unresolved records, without silently repairing labels.</span></li>
+        <li><strong>Group before splitting.</strong><span>Keep each patient, specimen, smear/slide, original field, and duplicate cluster together.</span></li>
+        <li><strong>Develop without the test set.</strong><span>Use training and development validation only for model and threshold selection.</span></li>
+        <li><strong>Evaluate once.</strong><span>Freeze the data, checkpoint, and threshold before locked testing; report uncertainty and source-level error analysis.</span></li>
       </ol>
-      <pre><code>python 02_CODE/scripts/check_data_integrity.py
+      <details class="commands">
+        <summary>See the reproducible command sequence</summary>
+        <pre><code>python 02_CODE/scripts/check_data_integrity.py
 python 02_CODE/scripts/02_train.py --data data.yaml --epochs 150
 python 02_CODE/scripts/03_evaluate_locked.py --model 03_MODELS/best.pt --data 02_CODE/data.yaml --split test --acknowledge-test-lock</code></pre>
+      </details>
     </section>
 
     <section id="limitations" aria-labelledby="limitations-title">
       <div class="section-heading">
-        <p class="kicker">Limits and scope</p>
-        <h2 id="limitations-title">What this system does not establish</h2>
+        <p class="kicker">Limitations</p>
+        <h2 id="limitations-title">What this work does not establish</h2>
+        <p>These boundaries are part of the research record and should guide how the software and historical outputs are interpreted.</p>
       </div>
       <ul class="limitations">
         <li>AFB appearance does not identify <em>Mycobacterium tuberculosis</em> or confirm tuberculosis.</li>
+        <li>The current historical metrics do not represent independent test performance; no corrected model has completed a locked test evaluation.</li>
         <li>No prospective, external-site, reader, workflow, calibration, or clinical-impact validation has been completed.</li>
         <li>Performance across laboratories, scanners, stain protocols, populations, and low-load specimens remains unknown.</li>
         <li>Smear grading requires a validated acquisition and field-sampling protocol; detections alone are insufficient.</li>
@@ -168,20 +198,21 @@ python 02_CODE/scripts/03_evaluate_locked.py --model 03_MODELS/best.pt --data 02
 
     <section id="resources" aria-labelledby="resources-title">
       <div class="section-heading">
-        <p class="kicker">Traceability</p>
-        <h2 id="resources-title">Review the evidence and code</h2>
+        <p class="kicker">Explore the work</p>
+        <h2 id="resources-title">Project records and code</h2>
       </div>
       <div class="resource-links">
-        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/MODEL_CARD.md"><strong>Model card</strong><span>Intended use, prohibited use, evidence status, and failure modes</span></a>
-        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/DATA_CARD.md"><strong>Dataset card</strong><span>Audit counts, source status, manifest requirements, and split policy</span></a>
-        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/SECURITY.md"><strong>Security policy</strong><span>Local deployment boundary, reporting, sensitive data, and model trust</span></a>
-        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/releases"><strong>Release history</strong><span>Historical artifacts and future corrected releases</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model"><strong>Source repository</strong><span>Code, issues, releases, and project history</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/README.md"><strong>Project README</strong><span>Setup instructions and end-to-end usage</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/MODEL_CARD.md"><strong>Model card</strong><span>Model design, historical evidence, intended use, and failure modes</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/DATA_CARD.md"><strong>Dataset card</strong><span>Audit details, sources, manifest requirements, and split policy</span></a>
+        <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/releases"><strong>Release history</strong><span>Published software and historical artifacts</span></a>
       </div>
     </section>
   </main>
 
   <footer>
-    <p>TB-AFB Detection Research Pipeline · Research use only · No diagnostic claims</p>
+    <p>TB-AFB Detection Research Pipeline · Research use only</p>
     <p><a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model">Source code</a> · <a href="https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/blob/main/LICENSE">Apache-2.0 code license</a></p>
   </footer>
 </body>
