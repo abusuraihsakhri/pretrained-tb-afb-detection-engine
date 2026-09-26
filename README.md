@@ -1,182 +1,117 @@
-# TB-AFB Detection Research Pipeline
+# TB-AFB Detection Model
 
-[![Research use only](https://img.shields.io/badge/status-research%20use%20only-b45309)](MODEL_CARD.md)
+[![Research use only](https://img.shields.io/badge/status-research%20use%20only-b45309)](LICENSE)
 [![Tests](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/actions/workflows/tests.yml/badge.svg)](https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/code-Apache--2.0-2563eb)](LICENSE)
 
 [Project site](https://abusuraihsakhri.github.io/pretrained-tb-afb-detection-model/) ·
-[Model card](MODEL_CARD.md) ·
-[Dataset card](DATA_CARD.md) ·
-[Security](SECURITY.md) ·
-[Third-party notices](THIRD_PARTY_NOTICES.md)
+[Quick start](#quick-start) ·
+[Run locally](#local-web-interface)
 
-> **Research use only — validation hold.** The published v1.0.0 checkpoint was
-> trained before an independent audit found exact image leakage across splits and
-> a quarantined source with implausible annotations. Do not use this checkpoint
-> for diagnosis, patient management, smear grading, or reported performance
-> comparisons. A corrected checkpoint has not yet been trained.
+TB-AFB Detection is a deep-learning object-detection model for locating candidate acid-fast bacilli (AFB) in Ziehl–Neelsen microscopy images. The included single-class Ultralytics YOLOv8n model was trained for 150 epochs on labelled microscopy imagery and returns bounding boxes with confidence scores.
 
-This repository is a local-first research pipeline for detecting candidate
-acid-fast bacilli (AFB) in Ziehl–Neelsen microscopy images. It includes strict
-dataset validation, YOLO development training, tiled raster/WSI inference,
-global non-maximum suppression, a review queue, and a FastAPI research UI.
+It can analyse standard microscopy images directly and uses tile-based processing for large images and compatible whole-slide imaging workflows.
 
-AFB appearance is **not species-specific**. A detection must not be described as
-identification of *Mycobacterium tuberculosis* or as confirmation of tuberculosis.
+> **Research use only.** Model output identifies visual AFB candidates; it does not identify *Mycobacterium tuberculosis*, confirm tuberculosis, or replace laboratory or clinical judgement.
 
-## Current evidence status
+## Model at a glance
 
-The repository contains a historical 150-epoch YOLOv8n checkpoint. Its final
-development-validation outputs were approximately:
+| Item | Description |
+| --- | --- |
+| Architecture | Ultralytics YOLOv8n |
+| Task | Single-class object detection |
+| Target class | Candidate acid-fast bacillus (AFB) |
+| Input | Ziehl–Neelsen microscopy images; tiled large-image and WSI workflows |
+| Output | Bounding boxes, confidence scores, processing summary |
+| Training run | 150 epochs |
+| Included checkpoint | `03_MODELS/best.pt` |
 
-| Development metric | Historical value | Current interpretation |
-| --- | ---: | --- |
-| Precision | 0.7186 | Not an independent test estimate |
-| Recall | 0.5620 | Not an independent test estimate |
-| mAP@50 | 0.6406 | Invalid for clinical/generalization claims |
-| mAP@50–95 | 0.3119 | Invalid for clinical/generalization claims |
+### Recorded development outputs
 
-These values are retained only for provenance. They must not be called
-“accuracy,” “clinical validation,” “cross-validation,” or performance on an
-unseen cohort.
-
-### Audit findings blocking retraining
-
-The strict audit of the current 14,951-image working dataset found:
-
-| Finding | Count |
+| Metric | Output |
 | --- | ---: |
-| Label boxes across all splits | 70,723 |
-| Empty label files across all splits | 7,760 |
-| Exact duplicate image groups crossing splits | 131 |
-| Annotation violations reported | 13,710 |
-| `afb-detect` boxes crossing the large-box flag | 25,690 / 26,326 |
+| Precision | 0.7186 |
+| Recall | 0.5620 |
+| mAP@50 | 0.6406 |
+| mAP@50–95 | 0.3119 |
 
-The source `afb-detect` is quarantined by default. Training is intentionally
-blocked until the audit passes.
+These values describe the recorded development run. They are presented as model-development outputs, not diagnostic or clinical performance claims.
 
-## Reproducible workflow
+## What is included
 
-### 1. Create an environment
+- `best.pt` YOLOv8n checkpoint with SHA-256 sidecar file.
+- Command-line inference for microscopy raster images and supported large images.
+- Tiled whole-slide processing with overlap handling and global non-maximum suppression.
+- FastAPI backend and local browser interface for image review.
+- Python modules for model loading, tiled inference, post-processing, and optional research reporting.
+- Training and data-preparation code for further method development.
 
-Python 3.12 is used in CI. The pinned runtime file preserves the historical
-software snapshot; package upgrades require a compatibility evaluation.
+## Quick start
+
+Clone the repository and install the dependencies:
 
 ```bash
-python -m venv .venv
-python -m pip install --upgrade pip
+git clone https://github.com/abusuraihsakhri/pretrained-tb-afb-detection-model.git
+cd pretrained-tb-afb-detection-model
 python -m pip install -r requirements.txt
 ```
 
-### 2. Audit the dataset
+Run the included model on a local microscopy image:
 
 ```bash
-python 02_CODE/scripts/check_data_integrity.py
+python 02_CODE/scripts/04_inference.py --model 03_MODELS/best.pt --wsi path/to/microscopy-image.png --conf 0.25
 ```
 
-The command checks all splits, image decoding, image/label symmetry, box
-validity, class IDs, source-level box distributions, quarantined sources, and
-exact duplicate leakage. It writes a machine-readable report under
-`06_LOGS/audits/` and exits non-zero when the dataset is unsuitable.
+The command prints the number of candidate detections, the number of processed tiles, and elapsed processing time.
 
-### 3. Train only after the audit passes
+For a large image or whole-slide workflow, pass the image path through the same `--wsi` option. Supported slide formats require a compatible local OpenSlide installation.
 
-```bash
-python 02_CODE/scripts/02_train.py --data data.yaml --epochs 150 --batch 16
-```
+## Local web interface
 
-Training records the configuration, dataset-audit, Git commit, and checkpoint
-hashes. The pretrained initialization is pinned by `yolov8n.pt.sha256`; training
-refuses an absent or altered base checkpoint instead of silently downloading a
-different artifact. It uses development validation only and does not evaluate
-the test split.
-
-### 4. Evaluate the locked test set once
-
-After the dataset, model, and operating threshold are frozen:
-
-```bash
-python 02_CODE/scripts/03_evaluate_locked.py \
-  --model 03_MODELS/best.pt \
-  --data 02_CODE/data.yaml \
-  --split test \
-  --acknowledge-test-lock
-```
-
-### 5. Run research inference
-
-```bash
-python 02_CODE/scripts/04_inference.py \
-  --model 03_MODELS/best.pt \
-  --wsi path/to/research-image.png \
-  --conf 0.25
-```
-
-Morphology filtering is disabled by default. It may be explored only with a
-known calibration:
-
-```bash
-python 02_CODE/scripts/04_inference.py \
-  --model 03_MODELS/best.pt \
-  --wsi path/to/research-image.png \
-  --microns-per-pixel 0.25 \
-  --morphology-filter
-```
-
-Smear-category output additionally requires an explicit 1000× sampling-protocol
-confirmation. It remains research output, not a diagnosis.
-
-## Local API and review UI
-
-Start the API locally:
+Start the local API:
 
 ```bash
 uvicorn 05_DEPLOYMENT.api.server:app --host 127.0.0.1 --port 8001
 ```
 
-Then open `http://127.0.0.1:8001/ui/`.
+Then open [http://127.0.0.1:8001/ui/](http://127.0.0.1:8001/ui/) in a browser. The interface is intended for local image review and annotation workflows.
 
-Data-changing endpoints are disabled until `TB_AFB_API_TOKEN` is set. Submitted
-annotations enter `01_DATA/review_queue/`; they are not assigned randomly to
-training or validation. A curator must attach specimen/slide provenance and
-assign a group-safe split.
-
-For the container workflow, create a local `.env` containing a strong token and
-the expected model checksum. Docker Compose binds only to `127.0.0.1` and uses
-the reproducible CPU runtime by default. Configure and validate a separate
-hardware-specific image before enabling GPU acceleration.
-
-## Repository structure
+## Project structure
 
 ```text
-01_DATA/                 Local, ignored source and derived data
-02_CODE/scripts/         Audit, ingestion, training, evaluation, inference
-02_CODE/src/tb_afb/      Reusable model and inference modules
-03_MODELS/               Pinned checkpoint and SHA-256 sidecar
-05_DEPLOYMENT/           Local FastAPI application and review UI
-06_LOGS/                 Ignored audit, training, and evaluation records
-docs/                    GitHub Pages research status site
-tests/                   Unit and validation tests
+02_CODE/
+  data.yaml                 # single-class AFB model configuration
+  scripts/                  # training and inference entry points
+  src/tb_afb/               # detector, image tiling, post-processing, utilities
+03_MODELS/
+  best.pt                   # included YOLOv8n checkpoint
+05_DEPLOYMENT/
+  api/                      # FastAPI service and browser interface
+docs/                       # GitHub Pages project site
+tests/                      # automated tests
 ```
 
-## Scientific limitations
+## Using your own data
 
-- The current checkpoint has not passed independent evaluation.
-- The available filenames do not establish patient- or specimen-level
-  independence for every source.
-- Source licenses and upstream class definitions require a completed provenance
-  review before redistribution or retraining.
-- AFB microscopy does not identify a mycobacterial species.
-- Performance across laboratories, scanners, stains, populations, and low-load
-  specimens is unknown.
-- No prospective, external-site, workflow, reader, calibration, fairness, or
-  clinical-impact study has been completed.
+The project includes model-development code for labelled microscopy images using the single AFB class defined in `02_CODE/data.yaml`. Keep image and label data outside Git, use compatible YOLO labels, and run training with:
 
-See [MODEL_CARD.md](MODEL_CARD.md) and [DATA_CARD.md](DATA_CARD.md) for the
-release and data-governance status.
+```bash
+python 02_CODE/scripts/02_train.py --data data.yaml --epochs 150 --batch 8
+```
+
+The repository keeps raw microscopy data and generated research outputs out of version control.
+
+## Limitations
+
+- Candidate AFB detection is not species identification and does not confirm tuberculosis.
+- Output can vary with staining, optics, scanner or microscope characteristics, image quality, and specimen preparation.
+- Review predictions alongside the original image and the appropriate laboratory workflow.
+- Whole-slide processing depends on compatible readers and correct image calibration.
+
+## Technology
+
+Python, PyTorch, Ultralytics YOLO, OpenCV, OpenSlide, NumPy, FastAPI, and a static GitHub Pages site.
 
 ## License
 
-Repository code is provided under Apache License 2.0. Model, dependency, and
-dataset licenses must be reviewed separately; the repository license does not
-replace third-party terms.
+Code is available under the [Apache License 2.0](LICENSE).

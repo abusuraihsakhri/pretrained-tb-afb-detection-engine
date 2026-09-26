@@ -56,10 +56,13 @@ def test_public_site_accessibility_contract():
     assert all(current - previous <= 1 for previous, current in zip(headings, headings[1:]))
 
 
-def test_public_site_contains_validation_hold_and_no_unsupported_claims():
+def test_public_site_is_model_focused_and_avoids_unsupported_claims():
     lowered = HTML.lower()
-    assert "validation hold" in lowered
+    assert "yolov8n" in lowered
+    assert "deep-learning model" in lowered
     assert "research use only" in lowered
+    for internal_term in ("data audited", "dataset audit", "validation hold", "quarantined"):
+        assert internal_term not in lowered
     prohibited = (
         "clinical-grade",
         "ready for immediate clinical",
